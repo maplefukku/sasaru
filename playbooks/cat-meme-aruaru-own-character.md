@@ -174,8 +174,6 @@ audio:
     present: true
     character: 明るく軽い、跳ねるリズムの短いループ。中くらいのテンポで、最後まで同じ曲を流す
     entersAt: { beat: b1, offsetSec: 0 }
-    duckUnderVoice: null
-    levelDbUnderVoice: null
   sfx:
     - { cue: card-in, type: キャラが替わるときの短いポップ音 }
     - { cue: cut, type: 背景が替わるときの軽い風切り音 }
@@ -263,22 +261,21 @@ evidence:
     - captions.c2.motionIn
     - captions.c3.motionIn
     - captions.c4.motionIn
+    - captions.c1.shadow
+    - captions.c2.shadow
+    - captions.c3.shadow
+    - captions.c4.shadow
     - camera.moves
     - camera.transitions
     - audio.bgm.present
     - audio.bgm.character
     - audio.sfx
-    - routes.costUsdPerVideo
+    - routes.image-gen-stills.costUsdPerVideo
+    - routes.i2v.costUsdPerVideo
   unmeasured:
     - captions.c1.minHoldSec
     - captions.c4.minHoldSec
     - captions.c4.position.cx
-    - captions.c1.shadow
-    - captions.c2.shadow
-    - captions.c3.shadow
-    - captions.c4.shadow
-    - audio.bgm.duckUnderVoice
-    - audio.bgm.levelDbUnderVoice
 ---
 
 # 猫ミーム合成のあるある（自前キャラ化）
@@ -381,7 +378,7 @@ evidence:
 3. 背景を SVG で描く（講義室、夜の机、図書館、集中線、夜空）。時間が進むほど暗い色にする。自分で撮った写真を使うなら、このルートの `needs` に `own-footage` が加わる。
 4. 台本を JSON にする（`script.json`）。場面ごとにビートの id、開始秒と長さ、背景、キャラと表情、動き（弾む、震える、叫ぶ、つぶれる、揺れる、倒れる）、c2 のラベル、c3 の台詞、c4 の名札。尺を 62 秒から変えるときは、伸縮の比をビートの秒に掛ける。
 5. `index.html` を書く。ルート要素に `data-composition-id`、`data-width="1080"`、`data-height="1920"`、`data-duration` を付け、場面ごとに `class="clip"` と `data-start`、`data-duration` を付ける。キャラの動きは GSAP のタイムラインで書き、`window.__timelines` に一本登録する。`Math.random()` と `Date.now()` は使わない。c1 の黒帯は全尺の一つのクリップにし、最後のフレームまで残す。
-6. フォントは `@font-face` で Noto Sans JP を宣言する。BGM と効果音は `<audio>` で別トラックにし、ファイルはリポジトリの外に置く。
+6. フォントは CSS の font-face 規則で Noto Sans JP を宣言する。BGM と効果音は `<audio>` で別トラックにし、ファイルはリポジトリの外に置く。
 7. 検査する。`npx hyperframes@0.8.196 lint --json`（`font_family_without_font_face` が出たら直す）、`npx hyperframes@0.8.196 check --json`
 8. 書き出す。`npx hyperframes@0.8.196 render . -o renders/cut.mp4 --fps 30 --resolution portrait --quality delivery`。マシンをまたいで揃えるなら `--docker` を足す。
 9. `cut.json` に playbook id、ルート、素材とライセンス、カード、伸縮の比、逸脱を書き、gate のカット検査にかける。
@@ -440,6 +437,8 @@ image-gen-stills の静止画を先頭フレームにして、キャラの反応
 - **公開のストーリーボード**（101×180 の縮小画を 1 秒間隔）: 場面の切り替えの間隔、ビートの区切り、題が全尺で出続けること、ラベルの刻みが終盤ほど細かくなること、層の配置。目で見た値で、1 秒より細かい時刻は分からない。ハードカットの数は数えられない。
 - **公開の静止画 1 枚ずつ**（1080×1920）: 色のしきい値（白は RGB すべて 215 超、黄、赤、黒もそれぞれのしきい値）で画素を取り、行ごとの画素数のプロファイルから、各行の上下端と中心、色の中央値、縁の幅を拾った。一枚の絵の値なので、取り込みの計測ではなく推論として `inferred` に入れた。外接箱ではなく行プロファイルで、黄と赤の字は色の芯の高さ。
 
-推論。ビートの秒と役、層の大きさと位置と色と縁、最短の表示秒（c2 は b1 の 1 秒刻みから、c3 はこの型で決めた値）、カメラが動かないこと、トランジションがハードカットであること、BGM と効果音の付け方（音は聞いていない）、各ルートの費用（公開価格からの計算）。
+推論。ビートの秒と役、層の大きさと位置と色と縁、最短の表示秒（c2 は b1 の 1 秒刻みから、c3 はこの型で決めた値）、影を付けないこと（縮小画では見分けられないので、この型で決めた）、カメラが動かないこと、トランジションがハードカットであること、BGM と効果音の付け方（音は聞いていない）、各ルートの費用（公開価格からの計算）。
 
-未計測。c1 と c4 の最短の表示秒、c4 の横の位置（キャラに付いて動く）、影の有無（縮小画では見分けられない）、BGM を声の下で下げるかと、その dB（声が無い）。参照に声があったかは確かめていない（音を聞いていない）ので、`source.reference` は書いていない。
+未計測。c1 と c4 の最短の表示秒、c4 の横の位置（キャラに付いて動く）。
+
+該当なし。声が無い型なので、BGM を声の下で下げるかと、その dB の欄は書いていない。参照に声があったかは確かめていない（音を聞いていない）ので、`source.reference` は書いていない。
