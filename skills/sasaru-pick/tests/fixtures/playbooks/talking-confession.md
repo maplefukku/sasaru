@@ -5,6 +5,8 @@ name: 一人語りを手元映像に置き換えた型
 status: measured
 summary: 参照は人がカメラに失敗談を語る。作るカットは手元映像に字幕と読み上げを載せる。
 tags: [talk, study]
+audience:
+  - 資格勉強中の社会人
 fitsContent:
   - 一人語りの体験談
   - 勉強法のコツ

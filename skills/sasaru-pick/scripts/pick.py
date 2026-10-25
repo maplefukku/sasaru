@@ -128,17 +128,22 @@ def bigrams(text: str) -> set[str]:
     return {t[i : i + 2] for i in range(len(t) - 1)}
 
 
-def content_fit(brief_text: str, brief_tags: list[str], fm: dict):
-    """Share of a fitsContent item's bigrams found in the brief, best item wins; tags add a little."""
+def best_overlap(brief_text: str, items: list[str]) -> tuple[float, str | None]:
+    """Share of an item's bigrams found in the brief text; the best item wins."""
     have = bigrams(brief_text)
     best, best_item = 0.0, None
-    for item in fm.get("fitsContent", []):
+    for item in items:
         grams = bigrams(item)
         if not grams:
             continue
         score = len(grams & have) / len(grams)
         if score > best:
             best, best_item = score, item
+    return best, best_item
+
+
+def content_fit(brief_text: str, brief_tags: list[str], fm: dict):
+    best, best_item = best_overlap(brief_text, fm.get("fitsContent", []))
     shared_tags = sorted(set(brief_tags) & set(fm.get("tags", [])))
     return min(1.0, best + 0.15 * len(shared_tags)), best_item, shared_tags
 
@@ -274,10 +279,17 @@ def evaluate(playbooks: dict, brief: dict) -> tuple[list, list]:
         if blockers or route is None:
             closed.append({"id": pid, "fit": fit, "blockers": blockers, "routes": route_bl})
             continue
-        open_list.append({"id": pid, "fm": fm, "route": route, "routeIsDefault": is_default, "fit": fit, "matched": matched, "sharedTags": shared_tags})
+        aud_fit, aud_item = best_overlap(brief["audience"], fm.get("audience", [])) if brief["audience"] else (0.0, None)
+        open_list.append(
+            {
+                "id": pid, "fm": fm, "route": route, "routeIsDefault": is_default, "fit": fit, "matched": matched, "sharedTags": shared_tags,
+                "audienceFit": aud_fit, "audienceMatched": aud_item,
+            }
+        )
     open_list.sort(
         key=lambda c: (
             -round(c["fit"], 2),
+            -round(c["audienceFit"], 2),
             -PLAYBOOK_STATUS_RANK[c["fm"]["status"]],
             -ROUTE_STATUS_RANK[c["route"]["status"]],
             c["route"]["costUsdPerVideo"]["max"],
@@ -312,6 +324,8 @@ def candidate_view(c: dict) -> dict:
         "fit": round(c["fit"], 2),
         "matchedFitsContent": c["matched"],
         "sharedTags": c["sharedTags"],
+        "audienceFit": round(c["audienceFit"], 2),
+        "matchedAudience": c["audienceMatched"],
         "durationSec": fm["format"]["durationSec"],
         "route": route_view(c["route"], c["routeIsDefault"]),
     }
@@ -327,6 +341,8 @@ def reasons_for(c: dict, brief: dict, runner_up: dict | None) -> list[str]:
         out.append(f"載せたい内容が fitsContent の「{c['matched']}」に合う（一致 {c['fit']:.2f}）")
     if c["sharedTags"]:
         out.append(f"タグ {', '.join(c['sharedTags'])} が重なる")
+    if c["audienceMatched"] and c["audienceFit"] > 0:
+        out.append(f"誰に向けるかが audience の「{c['audienceMatched']}」に合う（一致 {c['audienceFit']:.2f}）")
     d = fm["format"]["durationSec"]
     if brief["duration"]:
         out.append(f"尺の帯 {d['min']:g}〜{d['max']:g} 秒が希望の尺に重なる")
@@ -342,7 +358,7 @@ def reasons_for(c: dict, brief: dict, runner_up: dict | None) -> list[str]:
     out.append(f"playbook の状態は {fm['status']}")
     if runner_up is not None:
         if round(runner_up["fit"], 2) == round(c["fit"], 2):
-            out.append(f"次点 {runner_up['id']} とは内容の一致が同じで、状態・ルートの状態・費用・尺の順で上回った")
+            out.append(f"次点 {runner_up['id']} とは内容の一致が同じで、audience の一致・状態・ルートの状態・費用・尺の順で上回った")
         else:
             out.append(f"次点 {runner_up['id']}（一致 {runner_up['fit']:.2f}）より内容の一致が高い")
     return out

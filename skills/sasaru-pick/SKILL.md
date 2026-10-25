@@ -19,7 +19,7 @@ disable-model-invocation: true
    content:
      kind: 勉強法のコツ            # 載せる自分のコンテンツの種類。fitsContent と照らす
      message: 25分で区切ると続く    # 一本で伝えたいこと
-   audience: 資格勉強中の社会人     # 誰に。理由の文に使う。絞り込みには使わない
+   audience: 資格勉強中の社会人     # 誰に。playbook の audience と照らし、内容の一致が並んだときの順に使う
    playbook: some-format-id        # 型を名指しされたときだけ。その一本だけを照らす
    durationSec: 12                 # 数か {min, max}
    aspect: "9:16"                  # 9:16, 4:5, 1:1, 16:9

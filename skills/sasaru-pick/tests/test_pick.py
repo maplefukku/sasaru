@@ -104,6 +104,17 @@ def talking_reference_when_allowed():
 
 
 @case
+def audience_breaks_a_content_tie():
+    brief = {"content": {"kind": "勉強法のコツ"}, "assets": ["own-footage"], "allowTalkingHead": True}
+    _, r = run(brief, LIB)
+    assert r["pick"]["id"] == "list-countdown-captions", r
+    _, r = run(brief | {"audience": "資格勉強中の社会人"}, LIB)
+    assert r["status"] == "picked" and r["pick"]["id"] == "talking-confession", r
+    assert r["pick"]["matchedAudience"] == "資格勉強中の社会人"
+    assert any("audience" in t for t in r["reasons"])
+
+
+@case
 def talking_reference_blocked_by_default():
     _, r = run({"content": {"kind": "一人語りの体験談"}, "assets": ["own-footage"]}, LIB)
     assert r["status"] == "no-fit", r

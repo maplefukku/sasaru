@@ -5,6 +5,8 @@ name: 字幕だけの三つ数え
 status: measured
 summary: 黒地に大きな見出しテロップが三枚出て、三つ目で言い切る。人は映らない。
 tags: [list, captions-only, study]
+audience:
+  - 中高生
 fitsContent:
   - 勉強法のコツ
   - 習慣化のヒント
@@ -63,7 +65,7 @@ audio:
     duckUnderVoice: null
     levelDbUnderVoice: null
   sfx:
-    - { "on": card-in, type: 短いポップ }
+    - { cue: card-in, type: 短いポップ }
   voice: none
   referenceAudioUsed: false
 routes:
