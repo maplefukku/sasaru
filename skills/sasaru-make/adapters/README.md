@@ -38,7 +38,7 @@ uv run --script adapters/<need>.py providers
 | `resolution` | 動画は `480p`/`720p`/`1080p`（既定 720p）、画像は `1k`/`2k`/`4k` など（既定 1k） |
 | `quality` | xAI の画像の `low`/`medium` |
 | `count` | 画像の枚数（1〜4） |
-| `voice`、`language` | TTS の声（ElevenLabs は voice_id、Gemini は声の名前）と言語。`ja` なら ElevenLabs の日本語の正規化を使う |
+| `voice` | TTS の声（ElevenLabs は voice_id、Gemini は声の名前。既定 `Kore`） |
 | `routeNeeds` | 使う playbook のルートの `needs` をそのまま渡す。喋る人と顔の参照の許可はここだけで決まる |
 | `talkingHead` | 人がカメラに喋る生成なら `true` |
 | `referenceKind` | 参照の種類。`face`、`character`、`product`、`object`、`scene`、`style` |
@@ -47,11 +47,11 @@ uv run --script adapters/<need>.py providers
 
 ## アダプタが止めること
 
-- **送信**: 既定は見積もりだけ。`--yes` と `--cap-usd` の片方でも無い、cap が見積もりの上限より小さい、入力の尺を確かめられない（v2v で ffprobe が無い）ときは送らない。送信の POST は再送しない（応答が失われても課金された可能性があるため）。ポーリングの GET だけを繰り返す。
-- **喋る人**: `talkingHead: true`、またはプロンプトが人のカメラへの語りを指している（英語と日本語の言い回しを広めに見る）ときは、`routeNeeds` に `lipsync` か `r2v` が無ければ拒否する。言い換えて通すのではなく、playbook の needs を直す。
+- **送信**: 既定は見積もりだけ。`--yes` と `--cap-usd` の片方でも無いとき、cap が見積もりの上限より小さいとき、見積もりが 0 のとき、入力の尺を確かめられないとき（v2v で ffprobe が無い、尺が読めない）は送らない。送信の POST は再送せず、リダイレクトもたどらない（応答が失われても課金された可能性があるため）。繰り返すのはポーリングの GET だけ。
+- **喋る人**: `talkingHead: true` のときは、`routeNeeds` に `lipsync` か `r2v` が無ければ拒否する。プロンプトが人のカメラへの語りを指しているとき（英語と日本語の言い回しを広めに見る。全角、ゼロ幅文字、ハイフンは正規化してから見る）も同じ。画像と動画の中身は見ない。言い換えて通すのではなく、playbook の needs を直す。
 - **顔の同一性**: `referenceKind: face` は、`routeNeeds` に `r2v` が無ければ拒否する。`r2v` で `referenceKind` が無いときは顔として扱う。
-- **参照の素材**: `sasaru/work/` と `$SASARU_HOME/work/` の下のファイルは入力にしない（取り込んだ参照リールとそのフレーム）。
-- **鍵**: 環境変数から読む。鍵はそのプロバイダの API のホストにだけ付け、生成物の取得先（CDN）には付けない。エラー文の中の鍵の値は `***` に置き換える。
+- **参照の素材**: `sasaru/work/` と `$SASARU_HOME/work/` の下のファイルは入力にしない（取り込んだ参照リールとそのフレーム）。シンボリックリンクは、リンクの場所と指す先の両方を見る。よそへのコピーやハードリンクは見分けられないので、これは境界ではなく誤用を止める仕掛けである。
+- **鍵**: 環境変数から読む。鍵はそのプロバイダの API のホスト（完全一致）にだけ、https で付ける。リダイレクトは自前でたどり、移った先が API のホストでなければ鍵を外す。生成物の取得先は https の公開ホストだけで、IP アドレスと localhost は開かない。エラー文の中の鍵の値は `***` に置き換える。
 
 ## プロバイダ
 

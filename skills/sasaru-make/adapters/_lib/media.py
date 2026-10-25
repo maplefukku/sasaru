@@ -43,18 +43,23 @@ def b64(path: Path) -> str:
 
 
 def probe_duration(path: Path) -> float | None:
-    """Seconds from ffprobe, or None when ffprobe is missing."""
+    """Longest of the container and stream durations from ffprobe, or None when ffprobe is missing."""
     exe = shutil.which("ffprobe")
     if exe is None:
         return None
     out = subprocess.run(
-        [exe, "-v", "error", "-show_entries", "format=duration", "-of", "json", str(path)],
+        [exe, "-v", "error", "-show_entries", "format=duration:stream=duration", "-of", "json", str(path)],
         capture_output=True, text=True, check=False,
     )
     try:
-        return float(json.loads(out.stdout)["format"]["duration"])
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        info = json.loads(out.stdout)
+        values = [info.get("format", {}).get("duration")] + [s.get("duration") for s in info.get("streams", [])]
+        secs = max(float(v) for v in values if v not in (None, "N/A"))
+    except (json.JSONDecodeError, TypeError, ValueError):
         raise InputError(f"動画の尺を読めません: {path.name}") from None
+    if secs < 0.5:
+        raise InputError(f"動画の尺が短すぎるか読めません（{secs:.3f} 秒）: {path.name}")
+    return secs
 
 
 def write_wav(path: Path, pcm: bytes, rate: int, channels: int = 1, sample_width: int = 2) -> None:

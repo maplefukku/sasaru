@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import os
 import re
+import unicodedata
 from pathlib import Path
 
 from .errors import Refused
@@ -13,23 +14,35 @@ TALKING_HEAD_NEEDS = frozenset({"lipsync", "r2v"})
 FACE_IDENTITY_NEEDS = frozenset({"r2v"})
 
 # Deliberately broad: a false positive costs a rephrase, a miss costs a talking-head cut.
+_SPEECH_EN = r"(talk|talks|talking|speak|speaks|speaking|says|saying|explains|explaining|tells|telling|pitches|pitching)"
 _TALKING_HEAD_PATTERNS = [
-    r"\b(talk(s|ing)?|speak(s|ing)?|address(es|ing)?)\s+(directly\s+)?(to|into|at)\s+(the\s+)?(camera|viewer|lens|audience)",
-    r"\b(to|into|at)\s+(the\s+)?camera\s+(and\s+)?(talk|speak|say)",
-    r"\blip[\s-]?sync",
-    r"\btalking[\s-]?head",
-    r"\b(vlog(ger)?|monologue|presenter|spokesperson|news\s*anchor)\b",
-    r"\b(he|she|they|person|man|woman|host)\s+(says|said|speaks|talks|explains)\b",
-    r"(カメラ|視聴者|こちら|画面)に(向かって|向け)?[^。]{0,6}(話|喋|しゃべ|語|説明)",
+    rf"\b{_SPEECH_EN}\s+(directly\s+|straight\s+)?(to|into|at|toward|towards)\s+(the\s+)?(camera|viewer|lens|audience)",
+    rf"\b(camera|lens)\b[^.]{{0,60}}\b{_SPEECH_EN}\b",
+    rf"\b{_SPEECH_EN}\b[^.]{{0,60}}\b(camera|lens)\b",
+    r"\b(direct|straight)\s+(to|into)\s+(the\s+)?(camera|lens)",
+    r"\b(to|into)\s+camera\b",
+    r"\blip\s?sync",
+    r"\btalking\s?head",
+    r"\b(vlog|vlogger|vlogging|monologue|presenter|spokesperson|news\s?anchor|testimonial|ugc|interview)\b",
+    r"\b(he|she|they|person|man|woman|host|girl|boy|guy|influencer)\s+(says|said|speaks|talks|explains|tells)\b",
+    r"(カメラ|視聴者|こちら|画面|レンズ)(に|へ|を見て|を見ながら|目線で)[^。]{0,8}(話|喋|しゃべ|語|説明|紹介)",
+    r"カメラ目線",
     r"(喋|しゃべ)(る|り|っ)",
-    r"(語りかけ|一人語り|リップシンク|口パク|自撮り|トーキングヘッド|顔出し)",
-    r"(人|男性|女性|演者|話者|キャスター)が[^。]{0,8}(話す|話して|語る|語って|説明する|説明して)",
+    r"(語りかけ|一人語り|リップシンク|口パク|自撮り|トーキングヘッド|顔出し|インタビュー|レビュー動画)",
+    r"(人|男性|女性|演者|話者|キャスター|インフルエンサー)が[^。]{0,8}(話す|話して|語る|語って|説明する|説明して|紹介する|紹介して)",
 ]
 _TALKING_HEAD_RE = [re.compile(p, re.IGNORECASE) for p in _TALKING_HEAD_PATTERNS]
+_INVISIBLE = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff\u00ad"))
+
+
+def _normalize(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text).translate(_INVISIBLE)
+    return re.sub(r"[-_‐‑‒–—―]+", " ", text).lower()
 
 
 def looks_like_talking_head(text: str) -> bool:
-    return any(r.search(text) for r in _TALKING_HEAD_RE)
+    t = _normalize(text)
+    return any(r.search(t) for r in _TALKING_HEAD_RE)
 
 
 def check_people(req: Request) -> None:
@@ -60,25 +73,31 @@ def check_people(req: Request) -> None:
 
 
 def _work_dirs() -> list[Path]:
-    dirs = []
     home = os.environ.get("SASARU_HOME")
-    if home:
-        dirs.append(Path(home).expanduser().resolve() / "work")
-    return dirs
+    if not home:
+        return []
+    work = Path(os.path.abspath(Path(home).expanduser() / "work"))
+    return [work, work.resolve()]
+
+
+def _under_default_work(p: Path) -> bool:
+    parts = p.parts
+    return any(parts[i] == "sasaru" and parts[i + 1] == "work" for i in range(len(parts) - 1))
 
 
 def check_inputs_are_not_reference(req: Request) -> None:
-    """Reference reels live under sasaru/work/; they never go to a generator."""
+    """Reference reels live under sasaru/work/; they never go to a generator.
+
+    A tripwire, not a boundary: a copy made elsewhere passes. Symlinks are caught on both ends.
+    """
     work_dirs = _work_dirs()
-    for p in req.inputs:
-        parts = p.parts
-        in_default = any(parts[i] == "sasaru" and parts[i + 1] == "work" for i in range(len(parts) - 1))
-        in_home = any(p.is_relative_to(d) for d in work_dirs)
-        if in_default or in_home:
-            raise Refused(
-                f"取り込みの作業フォルダ（sasaru/work/）のファイルは生成 API に渡しません: {p.name}。"
-                "参照の映像や静止画を入力にしないでください"
-            )
+    for given in req.inputs:
+        for p in (given, given.resolve()):
+            if _under_default_work(p) or any(p.is_relative_to(d) for d in work_dirs):
+                raise Refused(
+                    f"取り込みの作業フォルダ（sasaru/work/）のファイルは生成 API に渡しません: {given.name}。"
+                    "参照の映像や静止画を入力にしないでください"
+                )
 
 
 def check_spend(quote: Quote, *, yes: bool, cap_usd: float | None) -> None:
@@ -90,6 +109,8 @@ def check_spend(quote: Quote, *, yes: bool, cap_usd: float | None) -> None:
         )
     if not math.isfinite(cap_usd) or cap_usd <= 0:
         raise Refused("--cap-usd は正の数にしてください")
+    if quote.usd_max <= 0:
+        raise Refused("見積もりが 0 USD の有料送信はしません。見積もりの根拠を確かめてください")
     if quote.usd_max > cap_usd:
         raise Refused(
             f"見積もりの上限 {quote.usd_max:.4f} USD が --cap-usd {cap_usd:.4f} を超えるので送信しません"

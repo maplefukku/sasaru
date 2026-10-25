@@ -46,6 +46,13 @@ class SpendGate(AdapterCase):
         code, _ = self._run("--yes", "--cap-usd", "nan")
         self.assertEqual(code, 3)
 
+    def test_zero_quote_is_never_sent(self):
+        from _lib.errors import Refused
+        from _lib.gates import check_spend
+        from _lib.quote import Quote
+        with self.assertRaises(Refused):
+            check_spend(Quote(0, 0, "2026-10-25", "x"), yes=True, cap_usd=1.0)
+
     def test_missing_key_stops_before_sending(self):
         del os.environ["XAI_API_KEY"]
         code, err = self._run("--yes", "--cap-usd", "1")
@@ -63,6 +70,13 @@ class PeopleGate(AdapterCase):
         "視聴者に語りかける男性",
         "人が喋っているところ",
         "自撮りで一人語り",
+        "she looks into the lens and talks about the product",
+        "direct-to-camera UGC testimonial",
+        "talking-to-the-camera product review",
+        "カメラ目線で話す女性",
+        "こちらを見て話す",
+        "talking\u200b to the camera",
+        "ＴＡＬＫＩＮＧ ＨＥＡＤ",
     ]
     NOT_TALKING = [
         "rain on a window, slow push in",
@@ -133,6 +147,32 @@ class ReferenceReelGate(AdapterCase):
         code, _, err = self.call("v2v", "quote", "--request", str(self.req("v2v", inputs=[clip])))
         self.assertEqual(code, 3)
         self.assertIn("sasaru/work", err)
+
+    def test_symlink_into_sasaru_work_is_refused(self):
+        target = self.file("outside/reel.png")
+        link = self.tmp / "proj/sasaru/work/reel.png"
+        link.parent.mkdir(parents=True)
+        link.symlink_to(target)
+        code, _, _ = self.call("i2v", "quote", "--request", str(self.req("i2v", inputs=[str(link)])))
+        self.assertEqual(code, 3)
+
+    def test_symlink_out_of_sasaru_work_is_refused(self):
+        target = self.file("proj/sasaru/work/ref/reel.png")
+        link = self.tmp / "innocent.png"
+        link.symlink_to(target)
+        code, _, _ = self.call("i2v", "quote", "--request", str(self.req("i2v", inputs=[str(link)])))
+        self.assertEqual(code, 3)
+
+    def test_sasaru_home_work_that_is_a_symlink_is_refused(self):
+        reels = self.tmp / "reels"
+        reels.mkdir()
+        frame = self.file("reels/a.png")
+        (self.tmp / "lib").mkdir()
+        (self.tmp / "lib/work").symlink_to(reels)
+        os.environ["SASARU_HOME"] = str(self.tmp / "lib")
+        for p in (frame, str(self.tmp / "lib/work/a.png")):
+            code, _, _ = self.call("i2v", "quote", "--request", str(self.req("i2v", inputs=[p])))
+            self.assertEqual(code, 3, p)
 
     def test_inputs_from_sasaru_home_work_are_refused(self):
         os.environ["SASARU_HOME"] = str(self.tmp / "lib")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,7 +36,6 @@ class Request:
     quality: str | None = None
     count: int = 1
     voice: str | None = None
-    language: str | None = None
     route_needs: tuple[str, ...] = ()
     talking_head: bool = False
     reference_kind: str | None = None
@@ -86,7 +86,8 @@ def parse(data: dict, base_dir: Path) -> Request:
             path = base_dir / path
         if not path.is_file():
             raise InputError(f"入力ファイルがありません: {p}")
-        inputs.append(path.resolve())
+        # Kept unresolved so the reference-reel gate can see a sasaru/work/ symlink as well as its target.
+        inputs.append(Path(os.path.abspath(path)))
 
     route_needs = data.get("routeNeeds", [])
     if not isinstance(route_needs, list) or not all(n in ROUTE_NEEDS for n in route_needs):
@@ -118,7 +119,6 @@ def parse(data: dict, base_dir: Path) -> Request:
         quality=_str(data, "quality"),
         count=count,
         voice=_str(data, "voice"),
-        language=_str(data, "language"),
         route_needs=tuple(route_needs),
         talking_head=talking_head,
         reference_kind=reference_kind,

@@ -141,6 +141,7 @@ class _GeminiTTS(_Gemini):
             "contents": [{"parts": [{"text": req.prompt}]}],
             "generationConfig": {
                 "responseModalities": ["AUDIO"],
+                "maxOutputTokens": self.max_out_tokens,
                 "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": req.voice or self.default_voice}}},
             },
         }

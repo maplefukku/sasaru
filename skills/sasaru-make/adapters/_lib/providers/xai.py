@@ -172,7 +172,7 @@ class GrokVideoEdit(_XaiVideo):
             return Quote(rate * lo, rate * hi, AS_OF,
                          f"ffprobe が無く入力の尺が不明。上限は編集元の最大 {self.max_input_sec} 秒で計算。"
                          f"出力 ${self.per_sec[res]}/秒 + 入力 ${self.input_per_sec}/秒。{PRICING}")
-        s = math.ceil(secs - 1e-9)
+        s = max(1, math.ceil(secs - 1e-9))
         usd = rate * s
         return Quote(usd, usd, AS_OF,
                      f"{self.model} {res} 出力 ${self.per_sec[res]}/秒 + 入力動画 ${self.input_per_sec}/秒 × {s} 秒。{PRICING}")

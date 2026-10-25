@@ -118,6 +118,61 @@ class XaiRun(AdapterCase):
         self.assertIn("再送しません", err)
         self.assertEqual(len(fake.calls), 1)
 
+    def test_redirect_from_api_host_drops_the_key(self):
+        fake = FakeTransport(
+            ("POST", "https://api.x.ai/v1/videos/generations", resp(200, {"request_id": "r"})),
+            ("GET", "https://api.x.ai/v1/videos/r", resp(200, {"status": "done", "video": {"url": "https://api.x.ai/v1/files/r"}})),
+            ("GET", "https://api.x.ai/v1/files/r", resp(302, b"", {"Location": "https://cdn.example/obj.mp4"})),
+            ("GET", "https://cdn.example/obj.mp4", resp(200, VIDEO)),
+        )
+        code, _, err = self.run_paid("t2v", self.req("t2v"), fake, "1")
+        self.assertEqual(code, 0, err)
+        self.assertIn("Authorization", fake.calls[2]["headers"])
+        self.assertNotIn("Authorization", fake.calls[3]["headers"])
+
+    def test_subdomain_of_api_host_gets_no_key(self):
+        fake = FakeTransport(
+            ("POST", "https://api.x.ai/v1/videos/generations", resp(200, {"request_id": "r"})),
+            ("GET", "https://api.x.ai/v1/videos/r", resp(200, {"status": "done", "video": {"url": "https://cdn.api.x.ai/r.mp4"}})),
+            ("GET", "https://cdn.api.x.ai/r.mp4", resp(200, VIDEO)),
+        )
+        code, _, err = self.run_paid("t2v", self.req("t2v"), fake, "1")
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("Authorization", fake.calls[2]["headers"])
+
+    def test_download_must_be_public_https(self):
+        for url in ("http://vidgen.x.ai/r.mp4", "https://169.254.169.254/latest/meta-data/", "https://localhost/r.mp4",
+                    "file:///etc/passwd"):
+            fake = FakeTransport(
+                ("POST", "https://api.x.ai/v1/videos/generations", resp(200, {"request_id": "r"})),
+                ("GET", "https://api.x.ai/v1/videos/r", resp(200, {"status": "done", "video": {"url": url}})),
+            )
+            code, _, _ = self.run_paid("t2v", self.req("t2v"), fake, "1")
+            self.assertEqual(code, 4, url)
+            self.assertEqual(len(fake.calls), 2, url)
+
+    def test_redirect_on_submit_is_not_followed(self):
+        fake = FakeTransport(
+            ("POST", "https://api.x.ai/v1/videos/generations", resp(307, b"", {"Location": "https://other.example/"})),
+        )
+        code, _, _ = self.run_paid("t2v", self.req("t2v"), fake, "1")
+        self.assertEqual(code, 4)
+        self.assertEqual(len(fake.calls), 1)
+
+    def test_symlink_in_out_dir_is_replaced_not_followed(self):
+        victim = self.tmp / "victim.txt"
+        victim.write_text("keep")
+        self.out.mkdir()
+        (self.out / "cut-01-b2-xai-grok-imagine-video-1.5-lite.mp4").symlink_to(victim)
+        fake = FakeTransport(
+            ("POST", "https://api.x.ai/v1/videos/generations", resp(200, {"request_id": "r"})),
+            ("GET", "https://api.x.ai/v1/videos/r", resp(200, {"status": "done", "video": {"url": "https://vidgen.x.ai/r.mp4"}})),
+            ("GET", "https://vidgen.x.ai/r.mp4", resp(200, VIDEO)),
+        )
+        code, _, err = self.run_paid("t2v", self.req("t2v"), fake, "1")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(victim.read_text(), "keep")
+
     def test_grok_image_b64(self):
         fake = FakeTransport(
             ("POST", "https://api.x.ai/v1/images/generations",
@@ -268,6 +323,7 @@ class GeminiRun(AdapterCase):
         [path] = json.loads(out)["files"]
         with wave.open(path) as w:
             self.assertEqual((w.getframerate(), w.getnchannels(), w.getsampwidth(), w.getnframes()), (24000, 1, 2, 2400))
+        self.assertEqual(fake.json_body(0)["generationConfig"]["maxOutputTokens"], 16384)
         voice = fake.json_body(0)["generationConfig"]["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"]
         self.assertEqual(voice, "Puck")
 
@@ -290,14 +346,14 @@ class ElevenRun(AdapterCase):
              resp(200, {"audio_base64": base64.b64encode(b"ID3mp3").decode(), "alignment": alignment,
                         "normalized_alignment": alignment})),
         )
-        req = self.req("tts", prompt="ノー", voice="voice123", language="ja")
+        req = self.req("tts", prompt="ノー", voice="voice123")
         code, out, err = self.run_paid("tts", req, fake, "0.01")
         self.assertEqual(code, 0, err)
         audio, timing = json.loads(out)["files"]
         self.assertEqual(Path(audio).read_bytes(), b"ID3mp3")
         self.assertTrue(timing.endswith(".alignment.json"))
         self.assertEqual(json.loads(Path(timing).read_text())["alignment"], alignment)
-        self.assertEqual(fake.json_body(0), {"text": "ノー", "model_id": "eleven_v4", "apply_language_text_normalization": True})
+        self.assertEqual(fake.json_body(0), {"text": "ノー", "model_id": "eleven_v4"})
         self.assertEqual(fake.calls[0]["headers"]["xi-api-key"], FAKE_KEY)
         self.assert_no_key_leak(out, err)
 

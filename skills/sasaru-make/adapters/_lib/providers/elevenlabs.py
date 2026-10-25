@@ -56,8 +56,6 @@ class _Eleven(Provider):
         voice = self._voice(req)
         client = self.client(ctx)
         payload = {"text": req.prompt, "model_id": self.model}
-        if (req.language or "").lower().startswith("ja"):
-            payload["apply_language_text_normalization"] = True
         body = client.submit_json(
             f"{API}/text-to-speech/{voice}/with-timestamps?output_format={OUTPUT_FORMAT}", payload
         ).json()

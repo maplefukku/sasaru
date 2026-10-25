@@ -1,4 +1,5 @@
 import os
+import shutil
 import unittest
 from datetime import date
 from unittest import mock
@@ -105,6 +106,18 @@ class V2VQuotes(AdapterCase):
         with mock.patch("_lib.providers.xai.probe_duration", return_value=6.0):
             q = self.quote("v2v", self.req("v2v", inputs=[self.file("c.mp4")], provider="xai-grok-imagine-video"))
         self.assertAlmostEqual(q["usdMax"], (0.07 + 0.01) * 6)
+
+    @unittest.skipUnless(shutil.which("ffprobe"), "needs ffprobe")
+    def test_unreadable_or_zero_length_video_is_input_error(self):
+        clip = self.file("zero.mp4", b"not a video")
+        for provider in ("runway-aleph2", "xai-grok-imagine-video"):
+            code, _, _ = self.call("v2v", "quote", "--request", str(self.req("v2v", inputs=[clip], provider=provider)))
+            self.assertEqual(code, 2, provider)
+
+    def test_xai_edit_bills_at_least_one_second(self):
+        with mock.patch("_lib.providers.xai.probe_duration", return_value=0.6):
+            q = self.quote("v2v", self.req("v2v", inputs=[self.file("c.mp4")], provider="xai-grok-imagine-video"))
+        self.assertAlmostEqual(q["usdMax"], 0.08)
 
     def test_xai_edit_source_limit(self):
         with mock.patch("_lib.providers.xai.probe_duration", return_value=9.0):

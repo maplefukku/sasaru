@@ -72,19 +72,14 @@ class Provider:
         ctx.out_dir.mkdir(parents=True, exist_ok=True)
         n = f"-{index + 1}" if req.count > 1 else ""
         path = ctx.out_dir / f"{req.stem}-{self.id}{n}{suffix}{ext}"
+        if path.is_symlink():
+            path.unlink()
         path.write_bytes(data)
         return path
 
     def download(self, client: Client, ctx: RunContext, req: Request, url: str, default_ext: str, index: int = 0) -> Path:
         r = check(client.get(url), "生成物の取得")
-        return self.save(ctx, req, r.body, ext_for(_header(r.headers, "content-type"), default_ext), index)
-
-
-def _header(headers: dict, name: str) -> str | None:
-    for k, v in headers.items():
-        if k.lower() == name:
-            return v
-    return None
+        return self.save(ctx, req, r.body, ext_for(r.header("content-type"), default_ext), index)
 
 
 def billed_seconds(req: Request, lo: int, hi: int) -> int:
