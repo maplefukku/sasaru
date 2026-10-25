@@ -20,9 +20,13 @@ LIB = HERE / "fixtures" / "playbooks"
 BROKEN = HERE / "fixtures" / "broken"
 
 
-def run(brief: dict | str, *libs: Path, env: dict | None = None, cwd: Path | None = None) -> tuple[int, dict]:
-    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False, encoding="utf-8") as f:
-        f.write(brief if isinstance(brief, str) else json.dumps(brief, ensure_ascii=False))
+def run(brief: dict | str | bytes, *libs: Path, env: dict | None = None, cwd: Path | None = None) -> tuple[int, dict]:
+    if isinstance(brief, dict):
+        brief = json.dumps(brief, ensure_ascii=False)
+    if isinstance(brief, str):
+        brief = brief.encode("utf-8")
+    with tempfile.NamedTemporaryFile("wb", suffix=".yaml", delete=False) as f:
+        f.write(brief)
     args = [sys.executable, str(PICK), "--brief", f.name]
     for lib in libs:
         args += ["--library", str(lib)]
@@ -196,6 +200,31 @@ def better_type_behind_unanswered_assets():
 def bad_brief():
     code, r = run("assets: [drone]\n", LIB)
     assert code == 2 and r["status"] == "bad-brief", r
+
+
+@case
+def odd_brief_values_are_bad_briefs():
+    bad = [
+        "content: {kind: 勉強法のコツ}\ndurationSec: {min: 10s, max: 20}\n",
+        "content: {kind: 勉強法のコツ}\ndurationSec: {min: 10, max: null}\n",
+        "content: {kind: 勉強法のコツ}\ndurationSec: true\n",
+        "content: {kind: アプリの使い方}\nassets: [image-gen, tts]\nbudgetUsd: .nan\n",
+        "content: {kind: アプリの使い方}\nassets: [image-gen, tts]\nbudgetUsd: .inf\n",
+        b"content: {kind: \xff}\n",
+    ]
+    for brief in bad:
+        code, r = run(brief, LIB)
+        assert code == 2 and r["status"] == "bad-brief", (brief, r)
+
+
+@case
+def playbook_without_final_newline():
+    with tempfile.TemporaryDirectory() as d:
+        text = (LIB / "list-countdown-captions.md").read_text(encoding="utf-8")
+        head = text[: text.index("\n---\n", 4) + 4]
+        (Path(d) / "list-countdown-captions.md").write_text(head, encoding="utf-8")
+        _, r = run({"content": {"kind": "勉強法のコツ"}}, Path(d))
+    assert r["status"] == "picked" and r["pick"]["id"] == "list-countdown-captions", r
 
 
 def main() -> int:

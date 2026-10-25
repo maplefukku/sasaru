@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -54,7 +55,7 @@ def jsonable(value):
 
 def read_frontmatter(path: Path):
     text = path.read_text(encoding="utf-8")
-    m = re.match(r"\A---\r?\n(.*?)\r?\n---\r?\n", text, re.DOTALL)
+    m = re.match(r"\A---\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", text, re.DOTALL)
     if not m:
         raise ValueError("フロントマター（--- で囲んだ YAML）が無い")
     data = yaml.safe_load(m.group(1))
@@ -148,12 +149,16 @@ def content_fit(brief_text: str, brief_tags: list[str], fm: dict):
     return min(1.0, best + 0.15 * len(shared_tags)), best_item, shared_tags
 
 
+def finite_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
 def parse_duration(value):
     if value is None:
         return None
-    if isinstance(value, (int, float)) and value > 0:
+    if finite_number(value) and value > 0:
         return float(value), float(value)
-    if isinstance(value, dict) and {"min", "max"} <= value.keys():
+    if isinstance(value, dict) and finite_number(value.get("min")) and finite_number(value.get("max")):
         lo, hi = float(value["min"]), float(value["max"])
         if 0 < lo <= hi:
             return lo, hi
@@ -184,7 +189,7 @@ def parse_brief(raw) -> dict:
         if not isinstance(voice, list) or not set(map(str, voice)) <= VOICES:
             raise BriefError(f"voice は次の語の列: {', '.join(sorted(VOICES))}")
     budget = raw.get("budgetUsd")
-    if budget is not None and (isinstance(budget, bool) or not isinstance(budget, (int, float)) or budget < 0):
+    if budget is not None and (not finite_number(budget) or budget < 0):
         raise BriefError("budgetUsd は 0 以上の数")
     tags = raw.get("tags") or []
     if not isinstance(tags, list):
@@ -489,7 +494,7 @@ def main(argv=None) -> int:
     try:
         text = sys.stdin.read() if args.brief == "-" else Path(args.brief).read_text(encoding="utf-8")
         brief = parse_brief(yaml.safe_load(text))
-    except (OSError, yaml.YAMLError, BriefError) as exc:
+    except (OSError, UnicodeDecodeError, yaml.YAMLError, BriefError) as exc:
         print(json.dumps({"status": "bad-brief", "message": str(exc)}, ensure_ascii=False, indent=2))
         return 2
     dirs = args.library or default_libraries()

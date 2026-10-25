@@ -48,7 +48,7 @@ uv run --script <このスキルの絶対パス>/scripts/pick.py --brief sasaru/
 - 参照が人がカメラに喋る型（`source.reference.speech: on-camera`）は外す。`allowTalkingHead: true` か、`playbook` で名指しされたときだけ照らす。喋る人のルート（`talkingHead: true`、`r2v-talking`）は `allowTalkingHead: true` のときだけ通す（**sasaru-principle-no-talking-head-by-default**）。
 - ルートは既定ルートを先に試す。素材、予算、喋る人の条件で止まれば、同じ playbook の他のルートを、状態（tested、written、design-only の順）と費用の安い順に試す。
 - 費用は `routes[].costUsdPerVideo.max` が `budgetUsd` 以下のルートだけ通す。数は playbook の欄から読み、足したり見積もったりしない。
-- 並べる順は、内容の一致、playbook の状態（produced、measured、draft の順）、ルートの状態、費用、希望の尺との近さ、測った欄の数。
+- 並べる順は、内容の一致、audience の一致（playbook に `audience` が無ければ 0）、playbook の状態（produced、measured、draft の順）、ルートの状態、費用、希望の尺との近さ、測った欄の数。
 - 内容の一致が 0.3 未満の型は選ばない（名指しのときを除く）。当て推量で選ぶより聞き返す。
 
 ## Phase 2: 確かめる
