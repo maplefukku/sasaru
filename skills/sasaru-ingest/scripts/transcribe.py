@@ -59,9 +59,12 @@ def decode(path):
 def speech_intervals(path):
     j = json.loads(Path(path).read_text())
     out = []
-    for s in j.get("speech") or []:
+    speech = j.get("speech") or []
+    if isinstance(speech, dict):
+        speech = speech.get("segments") or []
+    for s in speech:
         if isinstance(s, dict):
-            out.append((float(s["tIn"]), float(s["tOut"])))
+            out.append((float(s.get("tIn", s.get("tStart"))), float(s.get("tOut", s.get("tEnd")))))
         else:
             out.append((float(s[0]), float(s[1])))
     return out

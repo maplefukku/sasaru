@@ -21,7 +21,7 @@ stay unmeasured; a script that fails is recorded as failed and the run goes on.
   caption_boxes.py <work>/source.<ext> <work> --json                    -> captions.json [captions.ocr.json]
   camera_motion.py <work>/source.<ext> <work> [--mask-captions <work>/captions.json] --json  -> camera.json
   audio_events.py <work>/source.<ext> <work> --json                     -> audio.json      (only with audio)
-  people_voice.py <work>/source.<ext> <work> [--speech <work>/audio.json] --json            -> people.json
+  people_voice.py <work>/source.<ext> <work> [--audio-events <work>/audio.json] --json      -> people.json
   transcribe.py <work>/source.<ext> <work>/transcript.json [--speech <work>/audio.json]      (only with audio)
   zoom.sh around each low-confidence cut candidate                      -> zoom/cut-<t>/strip.jpg
   draft_playbook.py <work> --id <id>                                    -> <id>.md, source-text.json
@@ -124,7 +124,7 @@ def main():
         if name == "camera_motion" and (work / "captions.json").is_file():
             cmd += ["--mask-captions", str(work / "captions.json")]
         if name == "people_voice" and (work / "audio.json").is_file():
-            cmd += ["--speech", str(work / "audio.json")]
+            cmd += ["--audio-events", str(work / "audio.json")]
         run_step(name, cmd, steps, a.step_timeout)
 
     if not has_audio:

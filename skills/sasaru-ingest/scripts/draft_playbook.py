@@ -60,17 +60,43 @@ def r(x, n=3):
 
 
 class Evidence:
+    """One kind per path; the last call wins, so a later measurement replaces an earlier placeholder."""
+
     def __init__(self):
-        self.measured, self.inferred, self.unmeasured = [], [], []
+        self.kind = {}
+
+    def _set(self, kind, paths):
+        for p in paths:
+            self.kind[p] = kind
 
     def m(self, *paths):
-        self.measured += paths
+        self._set("measured", paths)
 
     def i(self, *paths):
-        self.inferred += paths
+        self._set("inferred", paths)
 
     def u(self, *paths):
-        self.unmeasured += paths
+        self._set("unmeasured", paths)
+
+    def drop(self, *paths):
+        for p in paths:
+            self.kind.pop(p, None)
+
+    def merge(self, block):
+        for kind in ("measured", "inferred", "unmeasured"):
+            self._set(kind, (block or {}).get(kind) or [])
+
+    @property
+    def measured(self):
+        return [p for p, k in self.kind.items() if k == "measured"]
+
+    @property
+    def inferred(self):
+        return [p for p, k in self.kind.items() if k == "inferred"]
+
+    @property
+    def unmeasured(self):
+        return [p for p, k in self.kind.items() if k == "unmeasured"]
 
     def dump(self, fm=None):
         """`list[].field` expands to one `list.<item id>.field` per item, the path form the gate resolves."""
@@ -95,9 +121,12 @@ def aspect_of(w, h):
 
 def speech_spans(audio_ev, transcript):
     if audio_ev and audio_ev.get("speech") is not None:
+        speech = audio_ev["speech"]
+        if isinstance(speech, dict):
+            speech = speech.get("segments") or []
         out = []
-        for s in audio_ev["speech"]:
-            a, b = (s["tIn"], s["tOut"]) if isinstance(s, dict) else (s[0], s[1])
+        for s in speech:
+            a, b = (s.get("tIn", s.get("tStart")), s.get("tOut", s.get("tEnd"))) if isinstance(s, dict) else (s[0], s[1])
             out.append((float(a), float(b)))
         return out, "audio_events"
     if transcript and transcript.get("reliable") and transcript.get("segments"):
@@ -185,6 +214,10 @@ def caption_layers(cap, beats, onsets_speech, dur, fps, ev):
         ev.m("captions", "hook.firstFrameHasText")
         return [], bool(cap.get("firstFrameHasText", False)), ["caption_boxes.py はテロップを検出しなかった。"]
 
+    fragment = (cap.get("playbook") or {}).get("captions")
+    if fragment:
+        return fragment_layers(cap, fragment, cards, beats, onsets_speech, fps, ev)
+
     groups = {}
     for c in cards:
         groups.setdefault(c.get("layer") or "c1", []).append(c)
@@ -232,20 +265,12 @@ def caption_layers(cap, beats, onsets_speech, dur, fps, ev):
         (ev.m if mo else ev.u)(f"{p}.motionOut")
 
         show, lead = "onset", None
-        if onsets_speech:
-            leads = []
-            for c in cs:
-                near = min(onsets_speech, key=lambda o: abs(o - c["tIn"]))
-                if abs(near - c["tIn"]) <= 0.6:
-                    leads.append(near - c["tIn"])
-            if leads:
-                med = statistics.median(leads)
-                show, lead = ("before-onset", r(med, 2)) if med > 0.1 else ("onset", None)
-                ev.m(f"{p}.show")
-                if lead is not None:
-                    ev.m(f"{p}.leadSec")
-            else:
-                ev.u(f"{p}.show", f"{p}.leadSec")
+        shown = show_from_speech(cs, onsets_speech) if onsets_speech else None
+        if shown:
+            show, lead = shown
+            ev.m(f"{p}.show")
+            if lead is not None:
+                ev.m(f"{p}.leadSec")
         else:
             ev.u(f"{p}.show", f"{p}.leadSec")
         hide = "next-card" if not gaps or statistics.median(gaps) <= 0.1 else "phrase-end"
@@ -265,15 +290,89 @@ def caption_layers(cap, beats, onsets_speech, dur, fps, ev):
     return layers, bool(first), notes
 
 
+def show_from_speech(cs, onsets_speech):
+    """Median of (speech onset - card in) over cards within 0.6 s of an onset; None when no card is near one."""
+    leads = []
+    for c in cs:
+        near = min(onsets_speech, key=lambda o: abs(o - c["tIn"]))
+        if abs(near - c["tIn"]) <= 0.6:
+            leads.append(near - c["tIn"])
+    if not leads:
+        return None
+    med = statistics.median(leads)
+    return ("before-onset", r(med, 2)) if med > 0.1 else ("onset", None)
+
+
+def fragment_layers(cap, fragment, cards, beats, onsets_speech, fps, ev):
+    """caption_boxes.py writes whole layers under playbook.captions; key them to these beats and, with speech, set show."""
+    ev.merge((cap.get("playbook") or {}).get("evidence"))
+    layers, notes = [], []
+    for frag in fragment:
+        lid = frag["id"]
+        p = f"captions.{lid}"
+        cs = sorted((c for c in cards if (c.get("layer") or "c1") == lid), key=lambda c: c["tIn"])
+        layer = json.loads(json.dumps(frag))
+        layer["beats"] = beats_touching(beats, [(c["tIn"], c["tOut"]) for c in cs])
+        ev.m(f"{p}.beats")
+        shown = show_from_speech(cs, onsets_speech) if onsets_speech and cs else None
+        if shown:
+            layer["show"], layer["leadSec"] = shown
+            ev.m(f"{p}.show")
+            if layer["leadSec"] is None:
+                ev.drop(f"{p}.leadSec")
+            else:
+                ev.m(f"{p}.leadSec")
+        layers.append({k: layer[k] for k in LAYER_ORDER if k in layer})
+        hs = [c["capHeightRatio"] for c in cs if c.get("capHeightRatio")]
+        notes.append(f"{lid}: カード {len(cs)} 枚、白い芯の高さ / 画面高の中央値 {r(statistics.median(hs), 4) if hs else None}、"
+                     f"最大 {r(max(hs), 4) if hs else None}、中心 ({layer['position']['cx']}, {layer['position']['cy']})、"
+                     f"最短の表示 {layer.get('minHoldSec')} 秒。高さの測り方は {cap.get('capHeightMethod') or cap.get('heightMethod', '未記載')}、"
+                     f"白の閾値 {cap.get('threshold', '未記載')}、見た範囲 {cap.get('roi') or '全面'}。")
+    first = cap.get("firstFrameHasText")
+    if first is None:
+        first = cards[0]["tIn"] <= 1.0 / fps
+    ev.m("hook.firstFrameHasText")
+    return layers, bool(first), notes
+
+
 LAYER_ORDER = ["id", "role", "beats", "unit", "writingMode", "font", "capHeightRatio", "emphasis", "color", "stroke",
                "shadow", "plate", "position", "linesMax", "charsPerCard", "motionIn", "motionOut", "show", "leadSec",
                "hide", "minHoldSec", "lastCard"]
 
 
+def moves_from_segments(cam, beats):
+    """Key camera_motion.py's time segments to the beats the way its own --beats block does."""
+    segs = cam["segments"]
+    overall = {}
+    for s in segs:
+        overall[s["move"]] = overall.get(s["move"], 0.0) + s["tEnd"] - s["tStart"]
+    fallback = max(overall, key=overall.get) if overall else "static"
+    snaps = [(z["tStart"], z["tEnd"]) for z in cam.get("zoomEvents") or [] if z.get("easing") == "snap"]
+    moves = []
+    for b in beats:
+        share, order = {}, []
+        for s in segs:
+            if s.get("kind", "").startswith("zoom") and any(abs(s["tStart"] - a) < 0.05 and abs(s["tEnd"] - e) < 0.05 for a, e in snaps):
+                continue
+            ov = min(b["tOut"], s["tEnd"]) - max(b["tIn"], s["tStart"])
+            if ov > 0 and s["move"] in MOVES:
+                share[s["move"]] = share.get(s["move"], 0.0) + ov
+                if s["move"] not in order:
+                    order.append(s["move"])
+        picked = [m for m in order if m in ("push-in", "pull-out", "pan", "tilt") and share[m] >= 0.3]
+        if share.get("handheld", 0.0) >= 0.4 * max(b["tOut"] - b["tIn"], 1e-9):
+            picked.append("handheld")
+        if not picked:
+            picked = [max(share, key=share.get) if share else fallback]
+        moves += [{"beat": b["id"], "move": m} for m in picked]
+    return moves
+
+
 def camera_block(cam, beats, cuts, ev):
     notes = []
     if cam and cam.get("transitions") is not None:
-        trans = [{"at": at(beats, t["t"]), "type": t["type"]} for t in cam["transitions"] if t.get("type") in TRANSITIONS]
+        trans = [{"at": at(beats, t.get("t", t.get("atSec"))), "type": t["type"]} for t in cam["transitions"]
+                 if t.get("type") in TRANSITIONS and t.get("confidence", "high") in ("high", "medium")]
         ev.m("camera.transitions")
     else:
         trans = [{"at": at(beats, c["t"]), "type": "hard-cut"} for c in cuts if c.get("confidence") == "high"]
@@ -282,15 +381,20 @@ def camera_block(cam, beats, cuts, ev):
     if cam and cam.get("zoomEvents") is not None:
         zooms = []
         for z in cam["zoomEvents"]:
+            if z.get("transition"):
+                continue
             zooms.append({"at": at(beats, z["tStart"]), "scaleFrom": r(z.get("scaleFrom", 1.0)),
                           "scaleTo": r(z.get("scaleTo", z.get("factor", 1.0))),
-                          "durSec": r(z["tEnd"] - z["tStart"]), "easing": EASING.get(z.get("easing"), "linear")})
+                          "durSec": r(z.get("durSec", z["tEnd"] - z["tStart"])), "easing": EASING.get(z.get("easing"), "linear")})
         ev.m("camera.zooms")
     else:
         zooms = []
         ev.u("camera.zooms")
     moves = []
-    if cam and cam.get("moves"):
+    if cam and cam.get("segments"):
+        moves = moves_from_segments(cam, beats)
+        ev.m("camera.moves")
+    elif cam and cam.get("moves"):
         for b in beats:
             ov = [(min(b["tOut"], m["tOut"]) - max(b["tIn"], m["tIn"]), m["move"]) for m in cam["moves"]
                   if m.get("move") in MOVES and m["tIn"] < b["tOut"] and m["tOut"] > b["tIn"]]
@@ -311,48 +415,67 @@ def camera_block(cam, beats, cuts, ev):
 
 def audio_block(probe, onsets, audio_ev, beats, cards, cuts, zooms_t, voice_kind, ev):
     notes = []
+    voice = {"none": "none", "voiceover": "own-voiceover"}[voice_kind]
     if not probe["hasAudio"]:
         ev.m("audio.bgm.present", "audio.sfx", "audio.voice")
-        ev.u("audio.bgm.levelDbUnderVoice")
-        return {"bgm": {"present": False, "character": "音声ストリーム無し", "entersAt": None, "duckUnderVoice": None,
-                        "levelDbUnderVoice": None}, "sfx": [], "voice": "none", "referenceAudioUsed": False}, ["参照に音声ストリームが無い。"]
+        return {"bgm": {"present": False}, "sfx": [], "voice": "none", "referenceAudioUsed": False}, ["参照に音声ストリームが無い。"]
     bpm_note = f"prep（librosa）の推定 {onsets['bpm']} BPM、倍と半分は未確認" if onsets else "BPM 未計測"
-    if audio_ev and audio_ev.get("music") is not None:
-        mu = audio_ev["music"]
-        bpm = mu.get("bpm")
-        cands = mu.get("bpmCandidates")
-        bgm = {"present": bool(mu.get("present")),
-               "character": (f"約 {bpm} BPM" + (f"（候補 {', '.join(str(c) for c in cands)}）" if cands else "")) if bpm else "テンポ未計測",
-               "entersAt": at(beats, mu["tStart"]) if mu.get("present") and mu.get("tStart") is not None else None,
-               "duckUnderVoice": mu.get("ducksUnderSpeech"),
-               "levelDbUnderVoice": r(mu.get("levelDbUnderVoice"), 1)}
+    mu = (audio_ev or {}).get("music")
+    fragment = ((audio_ev or {}).get("playbook") or {}).get("audio")
+    if mu is not None:
+        enters = mu.get("entersAtSec", mu.get("tStart"))
+        tempo = mu.get("tempo") or {}
+        bpm = tempo.get("bpm", mu.get("bpm"))
+        cands = tempo.get("candidates", mu.get("bpmCandidates"))
+        bgm = {"present": bool(mu.get("present"))}
         ev.m("audio.bgm.present")
-        if bgm["entersAt"] is not None:
-            ev.m("audio.bgm.entersAt")
-        elif bgm["present"]:
-            ev.u("audio.bgm.entersAt")
-        ev.i("audio.bgm.character")
-        (ev.m if bgm["duckUnderVoice"] is not None else ev.u)("audio.bgm.duckUnderVoice")
-        (ev.m if bgm["levelDbUnderVoice"] is not None else ev.u)("audio.bgm.levelDbUnderVoice")
+        if bgm["present"]:
+            frag_bgm = (fragment or {}).get("bgm") or {}
+            bgm["character"] = frag_bgm.get("character") or (
+                (f"約 {bpm} BPM" + (f"（候補 {', '.join(str(c) for c in cands)}）" if cands else "")) if bpm else "テンポ未計測")
+            ev.i("audio.bgm.character")
+            bgm["entersAt"] = at(beats, enters if enters is not None else 0.0)
+            (ev.m if enters is not None and mu.get("entersAtBound", "exact") == "exact" else ev.i)("audio.bgm.entersAt")
+            if voice != "none":
+                bgm["duckUnderVoice"] = mu.get("duckUnderVoice", mu.get("ducksUnderSpeech"))
+                bgm["levelDbUnderVoice"] = r(mu.get("levelDbUnderVoice"), 1)
+                frag_ev = (audio_ev or {}).get("evidence") or {}
+                for key in ("duckUnderVoice", "levelDbUnderVoice"):
+                    path = f"audio.bgm.{key}"
+                    if bgm[key] is None:
+                        ev.u(path)
+                    else:
+                        (ev.i if path in (frag_ev.get("inferred") or []) else ev.m)(path)
+            if mu.get("levelBasis"):
+                notes.append(f"声との差の測り方: {mu['levelBasis']}。")
     else:
-        bgm = {"present": True, "character": f"未計測（{bpm_note}）", "entersAt": None, "duckUnderVoice": None,
-               "levelDbUnderVoice": None}
-        ev.u("audio.bgm.present", "audio.bgm.character", "audio.bgm.entersAt", "audio.bgm.duckUnderVoice",
-             "audio.bgm.levelDbUnderVoice")
+        bgm = {"present": True, "character": f"未計測（{bpm_note}）", "entersAt": {"beat": beats[0]["id"], "offsetSec": 0.0}}
+        if voice != "none":
+            bgm.update({"duckUnderVoice": None, "levelDbUnderVoice": None})
+            ev.u("audio.bgm.duckUnderVoice", "audio.bgm.levelDbUnderVoice")
+        ev.u("audio.bgm.present", "audio.bgm.character", "audio.bgm.entersAt")
         notes.append(f"BGM の有無、入り、声との差は audio_events.py の担当で未計測。{bpm_note}。")
+    raw = None
+    if audio_ev and isinstance(audio_ev.get("sfx"), list):
+        kept = [s for s in audio_ev["sfx"] if s.get("confidence", 1.0) >= 0.6]
+        types = [x.get("type") for x in (fragment or {}).get("sfx") or []]
+        raw = [{"t": float(s["t"]), "type": types[k] if k < len(types) and types[k] else (s.get("label") or "transient"),
+                "beatAligned": s.get("beatAligned", False)} for k, s in enumerate(kept)]
+    elif audio_ev and audio_ev.get("sfxCandidates") is not None:
+        raw = [{"t": float(s["t"]), "type": str((s.get("labels") or ["unlabeled"])[0]), "beatAligned": s.get("beatAligned", False)}
+               for s in audio_ev["sfxCandidates"]]
     sfx = []
-    if audio_ev and audio_ev.get("sfxCandidates") is not None:
+    if raw is not None:
         card_t = [c["tIn"] for c in cards]
         cut_t = [c["t"] for c in cuts]
-        for s in sorted(audio_ev["sfxCandidates"], key=lambda s: float(s["t"])):
-            t = float(s["t"])
+        for s in sorted(raw, key=lambda s: s["t"]):
+            t = s["t"]
             near = lambda xs: any(abs(x - t) <= 0.12 for x in xs)
-            cue = "card-in" if near(card_t) else "cut" if near(cut_t) else "zoom" if near(zooms_t) else "beat-drop" if s.get("beatAligned") else "other"
-            sfx.append({"cue": cue, "at": at(beats, t), "type": str((s.get("labels") or ["unlabeled"])[0])})
+            cue = "card-in" if near(card_t) else "cut" if near(cut_t) else "zoom" if near(zooms_t) else "beat-drop" if s["beatAligned"] else "other"
+            sfx.append({"cue": cue, "at": at(beats, t), "type": s["type"]})
         ev.m("audio.sfx")
     else:
         ev.u("audio.sfx")
-    voice = {"none": "none", "voiceover": "own-voiceover"}[voice_kind]
     ev.i("audio.voice")
     return {"bgm": bgm, "sfx": sfx, "voice": voice, "referenceAudioUsed": False}, notes
 
@@ -360,6 +483,8 @@ def audio_block(probe, onsets, audio_ev, beats, cards, cuts, zooms_t, voice_kind
 def reference_block(people, spans, cuts, ev):
     hard = sum(1 for c in cuts if c.get("confidence") == "high")
     ev.m("source.reference.hardCuts")
+    if people and "onCamera" not in people:
+        people = ((people.get("playbook") or {}).get("source") or {}).get("reference")
     if people and people.get("onCamera") in ON_CAMERA and people.get("speech") in SPEECH:
         ev.m("source.reference.onCamera", "source.reference.speech")
         return {"onCamera": people["onCamera"], "speech": people["speech"], "hardCuts": hard}

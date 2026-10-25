@@ -101,3 +101,5 @@ uv run --script <skill>/../sasaru-gate/scripts/validate_playbook.py <home>/playb
 - `<home>/playbooks/<id>.md` 一本。フロントマターはスキーマに合格し、`status: measured`、`evidence` に測った、推論、未計測が分かれている。
 - `<home>/work/<id>/` に下処理の生成物、`manifest.json`（tier、元ファイルの sha256、取り込み日、保持期限）、`source-text.json`。コミットしない。保持期限を過ぎたコピーは消す。
 - 返答は、playbook のパス、検査の結果、`evidence.unmeasured` に残った欄、`ingest.json` で `missing` か `failed` だった計測。
+
+テストは `uv run --script skills/sasaru-ingest/tests/test_<script>.py`（`caption_boxes`、`camera_motion`、`audio_events`、`people_voice`）。モデルを取る重いテストは `SASARU_SLOW=1` のときだけ動く。

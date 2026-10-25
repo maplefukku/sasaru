@@ -48,6 +48,8 @@ caption_boxes.py <video> <work_dir> --json
 
 `cards[].tIn` はビートの区切りにも使う（最優先）。
 
+`caption_boxes.py` は層の組み立てまで済ませた `playbook.captions` と `playbook.evidence` も書く（カードの出入りは `motionIn`、`motionOut`）。`draft_playbook.py` はそれがあれば層をそのまま使い、`beats`（カードが重なるビート）と、声があるときの `show`、`leadSec` だけを決め直す。上の表は、その塊が無い出力のときの組み方である。
+
 OCR をするなら、文言は `captions.ocr.json` に分ける。`{"cards": [{"tIn": 0.48, "tOut": 1.74, "text": "…"}]}`。`draft_playbook.py` はこれを `source-text.json` に写すだけで、playbook には入れない。
 
 ## camera_motion.py → `camera.json`
@@ -58,19 +60,19 @@ camera_motion.py <video> <work_dir> [--mask-captions <work_dir>/captions.json] -
 
 ```json
 {
-  "zoomEvents": [{ "tStart": 1.0, "tEnd": 1.5, "scaleFrom": 1.0, "scaleTo": 1.2, "easing": "easeOut" }],
-  "transitions": [{ "t": 3.0, "type": "hard-cut" }],
-  "moves": [{ "tIn": 0.0, "tOut": 3.0, "move": "handheld" }],
-  "shake": { "txStd": 0.003, "tyStd": 0.002 }
+  "zoomEvents": [{ "tStart": 1.0, "tEnd": 1.5, "durSec": 0.5, "scaleFrom": 1.0, "scaleTo": 1.2, "easing": "ease-out", "transition": false }],
+  "transitions": [{ "atSec": 3.0, "type": "hard-cut", "confidence": "high" }],
+  "segments": [{ "tStart": 0.0, "tEnd": 3.0, "kind": "shake", "move": "handheld" }],
+  "shake": { "stepJitter": 0.0026 }
 }
 ```
 
 | JSON | playbook |
 | --- | --- |
-| `zoomEvents[]`（`scaleTo` が無ければ `factor`。`easing` は `linear`、`easeIn`、`easeOut`、`easeInOut`、`punch` かスキーマの語） | `camera.zooms[]`。`at` は `tStart` を含むビートと、その頭からの秒 |
-| `transitions[]`（`type` はスキーマの語だけ。他の語は捨てる） | `camera.transitions[]`。無ければ prep の確信の高いカットを `hard-cut` で入れる |
-| `moves[]`（`move` はスキーマの語） | `camera.moves[]`。ビートごとに重なりの一番長い動き |
-| `moves` が無く `shake` がある | 並進の標準偏差 / 画面幅が 0.004 を超えれば全ビート `handheld`、以下なら `static` |
+| `zoomEvents[]`（`transition: true` はトランジションの一部なので捨てる。`scaleTo` が無ければ `factor`。`easing` はスキーマの語か `linear`、`easeIn`、`easeOut`、`easeInOut`、`punch`） | `camera.zooms[]`。`at` は `tStart` を含むビートと、その頭からの秒 |
+| `transitions[]`（秒は `atSec` か `t`。`type` はスキーマの語だけ。`confidence` が `low` のものは捨てる） | `camera.transitions[]`。無ければ prep の確信の高いカットを `hard-cut` で入れる |
+| `segments[]`（`move` はスキーマの語） | `camera.moves[]`。`camera_motion.py --beats` と同じ決め方で、ビートの 4 割以上が `handheld` ならそれを、0.3 秒以上の押し引きとパンを足し、無ければ重なりの一番長い動き |
+| `segments` も `moves` も無く `shake` がある | 並進の標準偏差 / 画面幅が 0.004 を超えれば全ビート `handheld`、以下なら `static` |
 
 ## audio_events.py → `audio.json`
 
@@ -80,37 +82,40 @@ audio_events.py <video> <work_dir> --json
 
 ```json
 {
-  "speech": [[0.43, 2.6], [3.09, 4.34]],
-  "music": { "present": true, "tStart": 0.0, "bpm": 107.7, "bpmCandidates": [53.8, 107.7, 215.3],
-             "ducksUnderSpeech": true, "levelDbUnderVoice": -14.0 },
-  "sfxCandidates": [{ "t": 4.64, "labels": ["Whoosh"], "beatAligned": false }]
+  "speech": { "segments": [{ "tStart": 0.43, "tEnd": 2.6 }, { "tStart": 3.09, "tEnd": 4.34 }] },
+  "music": { "present": true, "entersAtSec": 0.12, "entersAtBound": "exact", "tempo": { "bpm": 107.7, "candidates": [53.8, 107.7, 215.3] },
+             "duckUnderVoice": null, "levelDbUnderVoice": -25.7 },
+  "sfx": [{ "t": 4.64, "label": "Whoosh", "confidence": 0.8 }],
+  "playbook": { "audio": { "bgm": { "character": "約 108 BPM。気分は聞いて書く" }, "sfx": [{ "cue": "other", "type": "風切り" }] } },
+  "evidence": { "measured": [], "inferred": ["audio.bgm.levelDbUnderVoice"], "unmeasured": [] }
 }
 ```
 
 | JSON | playbook |
 | --- | --- |
-| `speech`（`[tIn, tOut]` か `{"tIn","tOut"}` の列） | テロップの `show` と `leadSec`。`transcribe.py --speech` が区間の外の文字起こしを捨てる |
-| `music.present`、`tStart` | `audio.bgm.present`、`entersAt` |
-| `music.bpm`、`bpmCandidates` | `audio.bgm.character` の言葉（推論の欄） |
-| `music.ducksUnderSpeech`、`levelDbUnderVoice` | `audio.bgm.duckUnderVoice`、`levelDbUnderVoice` |
-| `sfxCandidates[]` | `audio.sfx[]`。カードの出から 0.12 秒以内なら `cue: card-in`、カットなら `cut`、ズームなら `zoom`、`beatAligned` なら `beat-drop`、他は `other`。`type` は `labels[0]` |
+| `speech.segments`（`{"tStart","tEnd"}`。`[tIn, tOut]` の列も読む） | テロップの `show` と `leadSec`。`transcribe.py --speech` が区間の外の文字起こしを捨てる |
+| `music.present`、`entersAtSec` | `audio.bgm.present`、`entersAt`。`entersAtBound` が `exact` でなければ推論。BGM が無ければ `present: false` だけを書く |
+| `playbook.audio.bgm.character`（無ければ `music.tempo.bpm`、`candidates`） | `audio.bgm.character`（推論の欄） |
+| `music.duckUnderVoice`、`levelDbUnderVoice` | 声のある型だけ `audio.bgm.duckUnderVoice`、`levelDbUnderVoice`。`evidence.inferred` に載った欄は推論 |
+| `sfx[]` の `confidence` 0.6 以上（種類は `playbook.audio.sfx[].type`） | `audio.sfx[]`。カードの出から 0.12 秒以内なら `cue: card-in`、カットなら `cut`、ズームなら `zoom`、`beatAligned` なら `beat-drop`、他は `other` |
 
 音声ストリームが無い参照では呼ばない。
 
 ## people_voice.py → `people.json`
 
 ```text
-people_voice.py <video> <work_dir> [--speech <work_dir>/audio.json] --json
+people_voice.py <video> <work_dir> [--audio-events <work_dir>/audio.json] --json
 ```
 
 ```json
-{ "onCamera": "face", "speech": "on-camera", "faceRate": 0.98 }
+{ "decision": { "onCamera": "face", "speech": "on-camera" },
+  "playbook": { "source": { "reference": { "onCamera": "face", "speech": "on-camera" } } } }
 ```
 
 | JSON | playbook |
 | --- | --- |
-| `onCamera`（`none`、`hands`、`body-no-face`、`face`） | `source.reference.onCamera` |
-| `speech`（`none`、`voiceover`、`on-camera`） | `source.reference.speech` |
+| `playbook.source.reference.onCamera`（`none`、`hands`、`body-no-face`、`face`） | `source.reference.onCamera` |
+| `playbook.source.reference.speech`（`none`、`voiceover`、`on-camera`） | `source.reference.speech` |
 
 参照の判定から、作るカットの欄を推論で決める。`face` は `format.onCamera: none`、声があれば `format.speech: voiceover` と `audio.voice: own-voiceover`。`source.reference.onCamera` が測れて `none` なら、既定ルートを `code-motion` にする。それ以外は `caption-over-footage`。
 

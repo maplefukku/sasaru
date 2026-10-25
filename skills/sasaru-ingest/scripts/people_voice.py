@@ -103,7 +103,7 @@ def model_path(cache: Path, key: str) -> Path:
     if not dest.exists():
         log(f"fetching {url} -> {dest}")
         dest.parent.mkdir(parents=True, exist_ok=True)
-        tmp = dest.with_suffix(".part")
+        tmp = dest.with_suffix(f"{dest.suffix}.{os.getpid()}.part")
         urllib.request.urlretrieve(url, tmp)
         tmp.replace(dest)
     return dest
