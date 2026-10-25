@@ -50,11 +50,12 @@ playbook は `cut.json` の `playbookPath`、`$SASARU_HOME/playbooks/`、`sasaru
 | `format.*` | ffprobe と、全フレームの枚数 | 縦横比、fps、尺の帯 |
 | `beats.boundaries` | テロップのカードの切り替わりとハードカット | 最短のビートの半分以内に、各ビートの終わりがある |
 | `camera.transitions` | HSV のフレーム差 | 急な切り替えが書いた秒にだけある。フェードは見ない |
-| `captions.<層>.capHeightRatio`、`headlineFloor` | 層の色と縁の色に合う画素の行の箱。各カードの安定したフレームを原寸で測る | playbook の値（`cut.json` の逸脱があればその値）。`headline` は 0.04 以上 |
-| `captions.<層>.emphasis`、`position.*`、`safeArea`、`linesMax` | 同じ箱 | 倍率、cx、cy、揃え、`format.safeArea`、同時の段数 |
-| `captions.<層>.show`、`hide`、`minHoldSec`、`lastCard` | カードの出た秒と消えた秒、声の頭と終わり | 層の規則。最後のカードは層の最後のビートの終わりまで残る |
-| `captions.<層>.motionIn`、`motionOut`、`stroke`、`color` | 出入りのフレームの変化、箱の外側の暗い帯、芯の色 | 層の値。縁の外も暗い画は縁を区別できないので未計測 |
-| `audio.voice`、`audio.midPhraseHoles`、`audio.closing` | 乾いた声（`cut.json` の voice、無ければミックス）の RMS | 声の有無。一枚のカードの中の 0.15 秒以上の穴は、その句に読点か空白があるときだけ許す。結びのモーラの窓が発話線を超え、声が終端の前に終わる |
+| `captions.<層>.capHeightRatio`、`headlineFloor` | 層の色か `emphasis.color` に合い、縁の色に接する画素の行の箱。各カードの安定したフレームを原寸で測る。地の段は層の色の段 | playbook の値（`cut.json` の逸脱があればその値）。`headline` は 0.04 以上 |
+| `captions.<層>.emphasis.*`、`position.*`、`safeArea`、`linesMax` | 同じ箱。強調の段は `emphasis.color` の段（色が無ければいちばん高い段） | 倍率、強調色、cx、cy、揃え、`format.safeArea`、同時の段数 |
+| `captions.<層>.show`、`hide`、`minHoldSec`、`lastCard` | カードの出た秒と消えた秒、声の頭と終わり。声の無い型は `cut.json` の予定の秒 | 層の規則。最後のカードは層の最後のビートの終わりまで残る |
+| `captions.<層>.motionIn`、`motionOut` | 出入りの 0.5 秒の箱の変化。幅が 2% 以上動けば拡大系で、行き過ぎがあれば `pop`、育つだけなら `scale-in`。`pop` と `scale-in` の層は、切れ目なく育つ出だしを同じカードにまとめる | 層の値。`pop` と `scale-in` は同じ系として合格 |
+| `captions.<層>.stroke`、`color` | 字の上側の縁の色の帯（影は下に落ちるので上側だけ読む）。背景が縁より明るいカードだけを使う。芯の色 | 縁の有無。どのカードも上側が縁の 3 倍まで暗い画は未計測 |
+| `audio.voice`、`audio.midPhraseHoles`、`audio.closing` | 乾いた声（`cut.json` の voice、無ければミックス）の RMS。`format.speech: none`（または `audio.voice: none`）で声の源が無いときは測らず、`notChecked` に「該当なし」で出る | 声の有無。一枚のカードの中の 0.15 秒以上の穴は、その句に読点か空白があるときだけ許す。結びのモーラの窓が発話線を超え、声が終端の前に終わる |
 | `audio.bgm.*` | ミックスの、発話から離れた間の音量 | 有無、声より下、`levelDbUnderVoice`、入りの秒 |
 | `cut.audio.*` | `cut.json` の音源ファイルに時間で変わる利得をかけてミックスを再現した割合。参照の音との窓ごとの相関 | 音源のライセンスと `referenceAudioUsed: false`。再現が 0.9 以上。参照との相関が 0.3 以下 |
 | `cut.route`、`cut.container`、`cut.costUsd`、`cut.deviation.*` | `cut.json` | 既定でないルートは `routeRequestedByMaker: true` のときだけ。費用は無料ルートで 0、有料ルートで上限以内。逸脱には理由 |

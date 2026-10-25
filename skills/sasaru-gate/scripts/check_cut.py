@@ -169,8 +169,14 @@ def max_window_corr(mix, ref, win):
 
 # ---------- pixels ----------
 
-def text_mask(fr, color, ctol, stroke, stol, k):
-    core = (np.abs(fr.astype(np.int16) - color).max(axis=2) <= ctol).astype(np.uint8)
+def color_mask(fr, color, ctol):
+    return (np.abs(fr.astype(np.int16) - color).max(axis=2) <= ctol).astype(np.uint8)
+
+
+def text_mask(fr, colors, ctol, stroke, stol, k):
+    core = np.zeros(fr.shape[:2], np.uint8)
+    for c in colors:
+        core |= color_mask(fr, c, ctol)
     if stroke is None:
         return core, None
     dark = (np.abs(fr.astype(np.int16) - stroke).max(axis=2) <= stol).astype(np.uint8)
@@ -213,14 +219,18 @@ class Layer:
         self.id = cfg["id"]
         self.cfg = cfg
         self.color = hex_to_bgr(style.get("color") or cfg["color"])
+        em = (cfg.get("emphasis") or {}).get("color")
+        self.emph_color = hex_to_bgr(em) if em else None
+        self.colors = [self.color] + ([self.emph_color] if em else [])
         stroke = style["stroke"] if "stroke" in style else cfg.get("stroke")
         self.stroke_cfg = stroke
         self.stroke = hex_to_bgr(stroke["color"]) if stroke else None
         self.cy = (cfg.get("position") or {}).get("cy")
+        self.grows_in = cfg.get("motionIn") in ("pop", "scale-in")
         self.frames = []
 
     def key(self):
-        return (tuple(self.color), None if self.stroke is None else tuple(self.stroke))
+        return (tuple(tuple(c) for c in self.colors), None if self.stroke is None else tuple(self.stroke))
 
 
 def active(layer, t, beat_windows):
@@ -250,7 +260,7 @@ def scan(video, info, layers, m, roi, beat_windows):
             small = cv2.resize(fr, (w, h), interpolation=cv2.INTER_AREA)
             t = i / fps
             for Ls in groups.values():
-                mask, _ = text_mask(small, Ls[0].color, m["captionColorTol"], Ls[0].stroke, m["strokeColorTol"], k)
+                mask, _ = text_mask(small, Ls[0].colors, m["captionColorTol"], Ls[0].stroke, m["strokeColorTol"], k)
                 if roi:
                     mask[: int(roi[0] * h)] = 0
                     mask[int(roi[1] * h):] = 0
@@ -270,7 +280,7 @@ def scan(video, info, layers, m, roi, beat_windows):
     return i, cuts, (w, h)
 
 
-def segment(frames, wh):
+def segment(frames, wh, grows_in=False, max_entry=15):
     w, h = wh
     cards, cur = [], None
     for i, ls in enumerate(frames):
@@ -287,28 +297,55 @@ def segment(frames, wh):
             cur = {"first": i, "last": i}
     if cur:
         cards.append(cur)
+    if grows_in:
+        cards = merge_growing_entries(cards, frames, wh, max_entry)
     return [c for c in cards if c["last"] > c["first"]]
 
 
-def classify_motion(seq, stable, at_start):
-    s_top = sum(l["top"] for l in stable) / len(stable)
-    s_h = sum(l["bottom"] - l["top"] for l in stable) / len(stable)
+def union_box(ls):
+    return (min(l["top"] for l in ls), max(l["bottom"] for l in ls), min(l["left"] for l in ls), max(l["right"] for l in ls))
+
+
+def merge_growing_entries(cards, frames, wh, max_entry):
+    """A pop or scale-in card first shows a few smaller frames. Join a short run that grows, without a blank frame, into the next run."""
+    w, h = wh
+    out = []
+    for c in cards:
+        if out and c["first"] == out[-1]["last"] + 1 and out[-1]["last"] - out[-1]["first"] + 1 <= max_entry:
+            t0, b0, l0, r0 = union_box(frames[out[-1]["last"]])
+            t1, b1, l1, r1 = union_box(frames[min(c["first"] + 2, c["last"])])
+            near = abs((l0 + r0) - (l1 + r1)) / 2 <= 0.05 * w and abs((t0 + b0) - (t1 + b1)) / 2 <= 0.03 * h
+            smaller = (r0 - l0) <= 1.02 * (r1 - l1) and (b0 - t0) <= 1.02 * (b1 - t1)
+            if near and smaller:
+                out[-1]["last"] = c["last"]
+                continue
+        out.append(dict(c))
+    return out
+
+
+def classify_motion(seq, stable, at_start, max_edge=15):
+    """Read the leading frames of a card (or the trailing ones, reversed) against its stable frame."""
+    st, sb, sl, sr = union_box(stable)
+    s_w, s_h = max(sr - sl, 1), max(sb - st, 1)
     s_px = sum(l["px"] for l in stable)
-    edge = []
-    for ls in seq:
-        top = sum(l["top"] for l in ls) / len(ls)
-        hh = sum(l["bottom"] - l["top"] for l in ls) / len(ls)
+    edge, last_diff = [], -1
+    # a pop can open at its settled size and overshoot a frame later, so look at the whole window, not only the first frame
+    for i, ls in enumerate(seq[:max_edge]):
+        t, b, lft, rgt = union_box(ls)
         px = sum(l["px"] for l in ls)
-        if abs(top - s_top) <= 1 and px >= 0.97 * s_px:
-            break
-        edge.append((top - s_top, hh / max(s_h, 1)))
+        wr, dy = (rgt - lft) / s_w, t - st
+        edge.append((wr, dy))
+        if not (abs(wr - 1) < 0.01 and abs(dy) <= 1 and 0.97 * s_px <= px <= 1.03 * s_px):
+            last_diff = i
+    edge = edge[:last_diff + 1]
     if not edge:
         return "cut", 0
-    dy, hr = edge[0]
-    if abs(hr - 1) >= 0.1:
-        return ("scale-in" if at_start else "other"), len(edge)
-    if abs(dy) >= 0.25 * s_h:
-        return (("slide-up" if dy > 0 else "other") if at_start else "slide"), len(edge)
+    if any(abs(wr - 1) >= 0.02 for wr, _ in edge):
+        if not at_start:
+            return "other", len(edge)
+        return ("pop" if any(wr > 1.02 for wr, _ in edge) else "scale-in"), len(edge)
+    if abs(edge[0][1]) >= 0.25 * s_h:
+        return (("slide-up" if edge[0][1] > 0 else "other") if at_start else "slide"), len(edge)
     return "fade", len(edge)
 
 
@@ -321,32 +358,52 @@ def measure_frame(video, idx, layer, m, roi, info, ref_lines, wh):
     if not ok:
         return []
     k = max(3, int(round(2 * m["strokeSearchPx1080"] * W / 1080)) | 1)
-    mask, dark = text_mask(fr, layer.color, m["captionColorTol"], layer.stroke, m["strokeColorTol"], k)
+    mask, dark = text_mask(fr, layer.colors, m["captionColorTol"], layer.stroke, m["strokeColorTol"], k)
+    emph = color_mask(fr, layer.emph_color, m["captionColorTol"]) & mask if layer.emph_color is not None else None
     if roi:
         mask[: int(roi[0] * H)] = 0
         mask[int(roi[1] * H):] = 0
     found = lines_of(mask, m["captionMinLinePxFrac"] * W * H, max(1, int(m["captionLineGapFrac"] * H)))
     sh = H / wh[1]
     keep = [ln for ln in found if any(ln["top"] < rl["bottom"] * sh and ln["bottom"] > rl["top"] * sh for rl in ref_lines)]
+    target_px = (layer.stroke_cfg or {}).get("px1080") or m["strokeSearchPx1080"]
+    reach = max(3, int(round(3 * target_px * W / 1080)))
     out = []
     for ln in keep:
         sub = np.zeros_like(mask)
         sub[ln["top"]:ln["bottom"], ln["left"]:ln["right"]] = mask[ln["top"]:ln["bottom"], ln["left"]:ln["right"]]
+        n_emph = int(emph[sub.astype(bool)].sum()) if emph is not None else 0
+        is_emph = n_emph * 2 > int(sub.sum())
         core = fr[sub.astype(bool)]
-        rings = []
+        top_runs, bottom_runs = [], []
         if dark is not None:
-            prev = sub
-            reach = 3 * max(layer.stroke_cfg.get("px1080") or 0, m["strokeSearchPx1080"])
-            for rad in range(1, int(round(reach * W / 1080)) + 1):
-                grown = cv2.dilate(sub, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * rad + 1, 2 * rad + 1)))
-                ring = (grown > 0) & (prev == 0)
-                rings.append(float(dark[ring].mean()) if ring.any() else 0.0)
-                prev = grown
+            for x in range(ln["left"], ln["right"]):
+                colv = sub[ln["top"]:ln["bottom"], x]
+                if not colv.any():
+                    continue
+                y_top = ln["top"] + int(np.argmax(colv > 0))
+                y_bot = ln["bottom"] - 1 - int(np.argmax(colv[::-1] > 0))
+                top_runs.append(dark_run(dark[max(0, y_top - reach - 2):y_top, x][::-1], reach))
+                bottom_runs.append(dark_run(dark[y_bot + 1:y_bot + 1 + reach + 2, x], reach))
         out.append({"heightRatio": (ln["bottom"] - ln["top"]) / H, "widthRatio": (ln["right"] - ln["left"]) / W,
                     "cx": (ln["left"] + ln["right"]) / 2 / W, "cy": (ln["top"] + ln["bottom"]) / 2 / H,
                     "left": ln["left"] / W, "right": ln["right"] / W, "top": ln["top"] / H, "bottom": ln["bottom"] / H,
-                    "color": bgr_to_hex(np.median(core, axis=0)) if len(core) else None, "rings": rings})
+                    "emphasisColored": is_emph,
+                    "color": bgr_to_hex(np.median(core, axis=0)) if len(core) else None, "topRuns": top_runs, "bottomRuns": bottom_runs})
     return out
+
+
+def dark_run(strip, reach, antialias=2):
+    """Length of the stroke-coloured run leaving the glyph edge. None when it is still dark at three stroke widths out."""
+    i = 0
+    while i < min(antialias, len(strip)) and strip[i] == 0:
+        i += 1
+    j = i
+    while j < len(strip) and strip[j]:
+        j += 1
+    if j - i >= reach:
+        return None
+    return j - i
 
 
 def detect_faces(video, info, m):
@@ -402,8 +459,9 @@ class Report:
             self.skip(cid, f"playbook:{path} is null or absent, so there is no target", measured)
         return None
 
-    def skip(self, cid, why, measured=None):
-        self.not_checked.append({"id": cid, "why": why, **({"measured": measured} if measured is not None else {})})
+    def skip(self, cid, why, measured=None, status=None):
+        self.not_checked.append({"id": cid, **({"status": status} if status else {}), "why": why,
+                                 **({"measured": measured} if measured is not None else {})})
 
 
 def main():
@@ -495,13 +553,14 @@ def main():
     card_events = []
     measured_layers = {}
     for L in layers:
-        raw = segment(L.frames, wh)
+        raw = segment(L.frames, wh, L.grows_in, max(1, int(round(0.5 * fps))))
         cards = []
         for c in raw:
             span = L.frames[c["first"]:c["last"] + 1]
             st_idx = c["first"] + int(0.6 * (c["last"] - c["first"]))
-            kin, nin = classify_motion(span, L.frames[st_idx], True)
-            kout, nout = classify_motion(list(reversed(span)), L.frames[st_idx], False)
+            edge_max = max(1, int(round(0.5 * fps)))
+            kin, nin = classify_motion(span, L.frames[st_idx], True, edge_max)
+            kout, nout = classify_motion(list(reversed(span)), L.frames[st_idx], False, edge_max)
             ml = measure_frame(video, st_idx, L, m, roi, info, L.frames[st_idx], wh)
             if ml:
                 cards.append({"tIn": c["first"] / fps, "tOut": (c["last"] + 1) / fps, "last": c["last"], "lines": ml,
@@ -524,9 +583,13 @@ def main():
     if voice_path is not None and voice_path.is_file():
         voice = place(load_audio(voice_path), len(mix) if mix is not None else int(duration * SR),
                       voice_src.get("atSec", 0) if voice_src and not a.voice else 0, voice_src.get("inSec", 0) if voice_src and not a.voice else 0)
-    base = voice if voice is not None else mix
-    audio_on = "voice" if voice is not None else ("mix" if mix is not None else None)
+    aud = fm.get("audio") or {}
+    # without a voice file, a voiceless format's mix holds only music and effects; its onsets are not speech
+    voiceless = voice is None and (aud.get("voice") == "none" or fmt.get("speech") == "none")
+    base = voice if voice is not None else (None if voiceless else mix)
+    audio_on = "voice" if voice is not None else ("mix" if base is not None else None)
     sp = speech_map(base, m) if base is not None else None
+    no_speech_why = "format.speech is none and cut.json has no voice source, so the mix holds no speech to measure"
 
     def nearest(t, pts):
         return min(pts, key=lambda p: abs(p - t)) if pts else None
@@ -577,8 +640,9 @@ def main():
             rep.add(f"{P}.cards", "fail", 0, None, f"playbook:{P}", note="no card in this layer's colour and stroke was found")
             continue
         all_lines = [ln for c in cards for ln in c["lines"]]
-        hmin = min(ln["heightRatio"] for ln in all_lines)
-        base = [ln for ln in all_lines if ln["heightRatio"] <= hmin * (1 + tol["capHeightRel"])]
+        plain = [ln for ln in all_lines if not ln["emphasisColored"]] or all_lines
+        hmin = min(ln["heightRatio"] for ln in plain)
+        base = [ln for ln in plain if ln["heightRatio"] <= hmin * (1 + tol["capHeightRel"])]
         base_h = float(np.median([ln["heightRatio"] for ln in base]))
         rep.add(f"{P}.cards", "pass", [{"tIn": r(c["tIn"]), "tOut": r(c["tOut"]), "lines": len(c["lines"]),
                                         "heightRatio": [r(ln["heightRatio"], 4) for ln in c["lines"]],
@@ -597,17 +661,27 @@ def main():
             rep.add(f"{P}.headlineFloor", "pass" if base_h >= fl else "fail", r(base_h, 4), fl, "lines:headlineCapHeightFloor")
 
         emph = lc.get("emphasis")
+        tinted = [ln for ln in all_lines if ln["emphasisColored"]]
         big = [ln for ln in all_lines if ln["heightRatio"] > hmin * (1 + tol["capHeightRel"])]
-        scale_m = max(ln["heightRatio"] for ln in all_lines) / base_h
+        if tinted:
+            scale_m = float(np.median([ln["heightRatio"] for ln in tinted])) / base_h
+        else:
+            scale_m = max(ln["heightRatio"] for ln in all_lines) / base_h
         if emph and emph.get("scale"):
             ok = abs(scale_m - emph["scale"]) / emph["scale"] <= tol["emphasisRel"]
             rep.add(f"{P}.emphasis.scale", "pass" if ok else "fail", r(scale_m), emph["scale"], f"playbook:{P}.emphasis.scale",
-                    toleranceRel=tol["emphasisRel"], emphasisLines=len(big))
+                    toleranceRel=tol["emphasisRel"], emphasisLines=len(tinted or big),
+                    note="emphasis lines are the lines in emphasis.color" if tinted else "emphasis lines are the tallest lines")
         elif emph is None:
             rep.add(f"{P}.emphasis", "pass" if not big else "fail", {"scale": r(scale_m), "largerLines": len(big)}, None,
                     f"playbook:{P}.emphasis", note="null emphasis means one size inside the layer")
         if emph and emph.get("color"):
-            rep.skip(f"{P}.emphasis.color", "the detector looks for the layer colour; a differently coloured emphasis is not seen")
+            cols_e = [ln["color"] for ln in tinted if ln["color"]]
+            med_e = np.median(np.array([hex_to_bgr(c) for c in cols_e]), axis=0) if cols_e else None
+            diff_e = int(np.abs(med_e - L.emph_color).max()) if med_e is not None else None
+            rep.add(f"{P}.emphasis.color", "pass" if diff_e is not None and diff_e <= m["captionColorTol"] else "fail",
+                    {"lines": len(tinted), "color": bgr_to_hex(med_e) if med_e is not None else None}, emph["color"],
+                    f"playbook:{P}.emphasis.color", note=None if tinted else "no line in emphasis.color was found")
 
         pos = lc.get("position") or {}
         for key, vals in (("cx", [ln["cx"] for ln in all_lines]), ("cy", [ln["cy"] for ln in base])):
@@ -640,23 +714,26 @@ def main():
             rep.add(f"{P}.color", "pass" if diff <= m["captionColorTol"] else "fail", bgr_to_hex(med), bgr_to_hex(L.color),
                     f"playbook:{P}.color", maxChannelDiff=diff)
         if L.stroke is not None:
-            mean_r = np.array([ln["rings"] for ln in all_lines]).mean(axis=0)
-            t_px = max(1, int(round((L.stroke_cfg.get("px1080") or m["strokeSearchPx1080"]) * W / 1080)))
-            near = float(mean_r[:t_px].mean())
-            far = float(mean_r[2 * t_px:3 * t_px].mean()) if len(mean_r) >= 3 * t_px else None
+            # a drop shadow falls below the glyphs, so the stroke is read on the top edge only
             fmin = tol["strokeRingFracMin"]
-            lead = 0
-            for v in mean_r[1:]:
-                if v < fmin:
-                    break
-                lead += 1
-            meas = {"nearDarkFrac": r(near, 2), "farDarkFrac": r(far, 2), "px1080Approx": r((lead + 1) * 1080 / W, 1)}
-            if far is None or far >= fmin:
-                rep.add(f"{P}.stroke", "unmeasured", meas, L.stroke_cfg, f"playbook:{P}.stroke",
-                        note="the background (or a shadow) two to three stroke widths out is as dark as the stroke, so the stroke cannot be told apart")
+            by_card, bounded, bots = [], [], []
+            for c in cards:
+                tops_c = [v for ln in c["lines"] for v in ln["topRuns"]]
+                share_c = float(np.mean([v is not None for v in tops_c])) if tops_c else 0.0
+                by_card.append({"cardInSec": r(c["tIn"]), "boundedShare": r(share_c, 2)})
+                if share_c >= fmin:
+                    bounded += [v for v in tops_c if v is not None]
+                    bots += [v for ln in c["lines"] for v in ln["bottomRuns"] if v is not None]
+            meas = {"cardsReadable": sum(1 for b_ in by_card if b_["boundedShare"] >= fmin), "byCard": by_card,
+                    "topPx1080": r(float(np.median(bounded)) * 1080 / W, 1) if bounded else None,
+                    "bottomPx1080": r(float(np.median(bots)) * 1080 / W, 1) if bots else None}
+            if not bounded:
+                rep.add(f"{P}.stroke", "unmeasured", meas, L.stroke_cfg, f"playbook:{P}.stroke", method="pixels:top-edge",
+                        note="on every card the background above the glyphs stays as dark as the stroke for three stroke widths, so the stroke cannot be told from it")
             else:
-                rep.add(f"{P}.stroke", "pass" if near >= fmin else "fail", meas, L.stroke_cfg, f"playbook:{P}.stroke",
-                        note="presence is judged; the width is reported only")
+                present = float(np.median(bounded)) >= 1
+                rep.add(f"{P}.stroke", "pass" if present else "fail", meas, L.stroke_cfg, f"playbook:{P}.stroke", method="pixels:top-edge",
+                        note="read on the top edge, where a drop shadow does not reach, on cards whose background is lighter than the stroke; presence is judged, widths are reported")
 
         holds = [c["tOut"] - c["tIn"] for c in cards[:-1]]
         mh = rep.target(f"{P}.minHoldSec", f"{P}.minHoldSec", r(min(holds)) if holds else None)
@@ -665,8 +742,24 @@ def main():
             rep.add(f"{P}.minHoldSec", "pass" if not short else "fail", {"shortest": r(min(holds)) if holds else None, "short": short},
                     mh, f"playbook:{P}.minHoldSec", note="the last card is judged by lastCard")
 
+        mine = [cd for cd in rec_cards if cd.get("layer", lid) == lid]
+        planned = mine if len(mine) == len(cards) else None
+
+        def vs_plan(cid, key, rule, which, cards=cards, planned=planned):
+            """With no speech to time against, check the renderer kept the times make planned in cut.json."""
+            if planned is None:
+                rep.add(cid, "unmeasured", None, rule, f"playbook:{cid}", note=f"{no_speech_why}; cut.json cards do not match the measured cards")
+                return
+            pick = cards if which == "all" else cards[:-1]
+            rows = [{"pixelsSec": r(c[key]), "plannedSec": cd.get("start" if key == "tIn" else "end")} for c, cd in zip(pick, planned)]
+            ok = all(row["plannedSec"] is not None and abs(row["pixelsSec"] - row["plannedSec"]) <= tol_t for row in rows)
+            rep.add(cid, "pass" if ok else "fail", rows, {"rule": rule, "against": "cut.json planned times"}, f"playbook:{cid}",
+                    method="pixels+cut.json", toleranceSec=tol_t, note=no_speech_why)
+
         show = lc.get("show")
-        if show == "beat-start":
+        if show and show != "beat-start" and sp is None and voiceless:
+            vs_plan(f"{P}.show", "tIn", show, "all")
+        elif show == "beat-start":
             starts = [w_[0] for w_ in windows.values()]
             rows = [{"cardInSec": r(c["tIn"]), "beatStartSec": r(nearest(c["tIn"], starts))} for c in cards]
             ok = all(abs(c["tIn"] - nearest(c["tIn"], starts)) <= tol_t for c in cards)
@@ -678,8 +771,7 @@ def main():
             if lead is None:
                 rep.add(f"{P}.show", "unmeasured", None, show, f"playbook:{P}.leadSec", note="before-onset needs leadSec")
             else:
-                mine = [cd for cd in rec_cards if cd.get("layer", lid) == lid]
-                anchors = [cd.get("start", c["tIn"]) for cd, c in zip(mine, cards)] if len(mine) == len(cards) else [c["tIn"] for c in cards]
+                anchors = [cd.get("start", c["tIn"]) for cd, c in zip(planned, cards)] if planned else [c["tIn"] for c in cards]
                 rows, ok_all = [], True
                 for c, anchor in zip(cards, anchors):
                     on = nearest(anchor + lead, sp["onsets"])
@@ -711,6 +803,8 @@ def main():
                 ok_all &= hit
                 rows.append({"outSec": r(c["tOut"]), "speechOffSec": r(ref), "ok": bool(hit)})
             rep.add(f"{P}.hide", "pass" if ok_all else "fail", rows, hide, f"playbook:{P}.hide", method=f"pixels+{audio_on}", toleranceSec=tol_t)
+        elif hide == "phrase-end" and voiceless:
+            vs_plan(f"{P}.hide", "tOut", hide, "but-last")
         elif hide:
             rep.add(f"{P}.hide", "unmeasured", gaps, hide, f"playbook:{P}.hide", note="no audio to find phrase ends")
 
@@ -726,6 +820,10 @@ def main():
             off = sp["segments"][-1][1]
             rep.add(f"{P}.lastCard", "pass" if abs(last["tOut"] - off) <= tol_t else "fail", {"lastCardOutSec": r(last["tOut"])},
                     {"speechOffSec": r(off), "toleranceSec": tol_t}, f"playbook:{P}.lastCard", method=f"pixels+{audio_on}")
+        elif lc.get("lastCard") == "phrase-end" and voiceless and planned:
+            pe = planned[-1].get("end")
+            rep.add(f"{P}.lastCard", "pass" if pe is not None and abs(last["tOut"] - pe) <= tol_t else "fail", {"lastCardOutSec": r(last["tOut"])},
+                    {"plannedEndSec": pe, "toleranceSec": tol_t}, f"playbook:{P}.lastCard", method="pixels+cut.json", note=no_speech_why)
         elif lc.get("lastCard"):
             rep.add(f"{P}.lastCard", "unmeasured", {"lastCardOutSec": r(last["tOut"])}, lc["lastCard"], f"playbook:{P}.lastCard")
 
@@ -736,7 +834,8 @@ def main():
             if not kinds:
                 continue
             major = max(set(kinds), key=kinds.count)
-            ok = major == lc[key] or (lc[key] == "pop" and major in ("scale-in", "fade"))
+            grow = ("pop", "scale-in")
+            ok = major == lc[key] or (lc[key] in grow and major in grow)
             rep.add(f"{P}.{key}", "pass" if ok else "fail", major, lc[key], f"playbook:{P}.{key}", perCard=kinds,
                     maxEdgeFrames=max(c["inFrames" if key == "motionIn" else "outFrames"] for c in cards))
 
@@ -768,13 +867,15 @@ def main():
             rep.add(f"{P}.fontFamily", "pass" if ok else "fail", st["fontFamily"], fams, "playbook:fonts", method="cut.json")
 
     # ----- audio -----
-    aud = fm.get("audio") or {}
-    if sp is None:
+    if mix is None and voice is None:
         rep.add("audio.stream", "unmeasured" if aud.get("voice") != "none" or (aud.get("bgm") or {}).get("present") else "pass",
                 None, None, None, method="audio", note="the cut has no audio stream")
     else:
-        has_speech = bool(sp["segments"])
-        if aud.get("voice"):
+        if sp is None:
+            for cid in ("audio.voice", "audio.midPhraseHoles", "audio.closing"):
+                rep.skip(cid, no_speech_why, status="not-applicable")
+        has_speech = bool(sp and sp["segments"])
+        if aud.get("voice") and sp is not None:
             rep.add("audio.voice", "pass" if has_speech == (aud["voice"] != "none") else "fail",
                     {"speech": has_speech, "segments": [[r(x, 2), r(y, 2)] for x, y in sp["segments"]]}, aud["voice"], "playbook:audio.voice",
                     method=audio_on)
@@ -819,8 +920,9 @@ def main():
         bgm = aud.get("bgm") or {}
         if mix is not None:
             t_, em = envelope(mix, m["envelopeWindowSec"], m["envelopeHopSec"])
-            n = min(len(em), len(sp["speech"]))
-            spm, em, t_ = sp["speech"][:n], em[:n], t_[:n]
+            spm_full = sp["speech"] if sp is not None else np.zeros(len(em), bool)
+            n = min(len(em), len(spm_full))
+            spm, em, t_ = spm_full[:n], em[:n], t_[:n]
             pad = int(0.1 / m["envelopeHopSec"])
             clear = np.convolve(spm.astype(float), np.ones(2 * pad + 1), "same") == 0
             bed = float(np.median(em[clear])) if clear.any() else None
