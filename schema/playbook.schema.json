@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/maplefukku/sasaru/schema/playbook.schema.json",
   "title": "sasaru playbook frontmatter",
-  "description": "YAML frontmatter of one playbook file. One file is one short-video format. format, hook, beats, captions, camera, and audio describe the cut this recipe makes on its default route. source.reference describes what the reference showed. Numbers describe the form, never the source work: no caption wording, no audio, no frames, no creator identity.",
+  "description": "YAML frontmatter of one playbook file. One file is one short-video format. format, hook, beats, captions, camera, and audio describe the cut this recipe makes on its default route. source.reference describes what the reference showed. Numbers describe the form, never the source work: no caption wording, no audio, no frames, no creator identity. null has exactly one meaning per field, named in that field's description. null: unmeasured means nobody measured or chose the value yet, and the field's path is listed in evidence.unmeasured. null: not applicable means the feature does not exist in this format. null never means no limit. A limit that does not apply is an optional field left out, such as format.safeArea. An optional field that does not apply to this format is left out, never null.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -88,23 +88,24 @@
           }
         },
         "capHeightRatio": {
-          "description": "Height of one line's white core divided by frame height. null when not measured.",
+          "description": "Height of one line's white core divided by frame height. null: unmeasured.",
           "type": ["number", "null"],
           "exclusiveMinimum": 0,
           "maximum": 1
         },
         "emphasis": {
-          "description": "How emphasized words differ inside this layer. null when the layer has no emphasis.",
+          "description": "How emphasized words differ inside this layer. null: not applicable, the layer has no emphasis.",
           "type": ["object", "null"],
           "additionalProperties": false,
           "required": ["scale", "color"],
           "properties": {
-            "scale": { "type": ["number", "null"], "exclusiveMinimum": 0 },
-            "color": { "oneOf": [{ "$ref": "#/$defs/hex" }, { "type": "null" }] }
+            "scale": { "description": "Emphasis line height over base line height. null: not applicable, size does not change.", "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "color": { "description": "null: not applicable, color does not change.", "oneOf": [{ "$ref": "#/$defs/hex" }, { "type": "null" }] }
           }
         },
         "color": { "$ref": "#/$defs/hex" },
         "stroke": {
+          "description": "null: not applicable, the layer has no stroke.",
           "type": ["object", "null"],
           "additionalProperties": false,
           "required": ["color", "px1080"],
@@ -120,8 +121,8 @@
           "additionalProperties": false,
           "required": ["cx", "cy", "align"],
           "properties": {
-            "cx": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-            "cy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "cx": { "description": "null: unmeasured.", "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "cy": { "description": "null: unmeasured.", "type": ["number", "null"], "minimum": 0, "maximum": 1 },
             "align": { "enum": ["left", "center", "right"] }
           }
         },
@@ -138,11 +139,14 @@
         "motionIn": { "enum": ["cut", "pop", "fade", "slide-up", "typewriter", "word-by-word", "scale-in", "other"] },
         "motionOut": { "enum": ["cut", "fade", "slide", "other"] },
         "show": { "enum": ["onset", "before-onset", "beat-start"] },
-        "leadSec": { "description": "Seconds a card appears before its onset when show is before-onset.", "type": ["number", "null"], "minimum": 0 },
+        "leadSec": { "description": "Seconds a card appears before its onset. A number when show is before-onset. null: not applicable, for every other show.", "type": ["number", "null"], "minimum": 0 },
         "hide": { "enum": ["next-card", "phrase-end", "beat-end"] },
-        "minHoldSec": { "description": "Shortest time a card stays on screen. null when not measured.", "type": ["number", "null"], "minimum": 0 },
+        "minHoldSec": { "description": "Shortest time a card stays on screen. null: unmeasured.", "type": ["number", "null"], "minimum": 0 },
         "lastCard": { "enum": ["hold-to-end", "phrase-end"] }
-      }
+      },
+      "if": { "properties": { "show": { "const": "before-onset" } } },
+      "then": { "properties": { "leadSec": { "type": "number" } } },
+      "else": { "properties": { "leadSec": { "type": "null" } } }
     }
   },
   "properties": {
@@ -195,7 +199,7 @@
           "properties": {
             "onCamera": { "enum": ["none", "hands", "body-no-face", "face"] },
             "speech": { "enum": ["none", "voiceover", "on-camera"] },
-            "hardCuts": { "type": ["integer", "null"], "minimum": 0 }
+            "hardCuts": { "description": "null: unmeasured.", "type": ["integer", "null"], "minimum": 0 }
           }
         }
       },
@@ -347,9 +351,21 @@
           "properties": {
             "present": { "type": "boolean" },
             "character": { "description": "Mood and tempo in words. Never a track title.", "type": "string" },
-            "entersAt": { "oneOf": [{ "$ref": "#/$defs/at" }, { "type": "null" }] },
-            "duckUnderVoice": { "type": ["boolean", "null"] },
-            "levelDbUnderVoice": { "description": "BGM RMS minus voice RMS in dB. null when not measured.", "type": ["number", "null"] }
+            "entersAt": { "$ref": "#/$defs/at" },
+            "duckUnderVoice": { "description": "Whether BGM drops under the voice. null: unmeasured. Leave it out when there is no voice or no BGM.", "type": ["boolean", "null"] },
+            "levelDbUnderVoice": { "description": "BGM RMS minus voice RMS in dB. null: unmeasured. Leave it out when there is no voice or no BGM.", "type": ["number", "null"] }
+          },
+          "if": { "properties": { "present": { "const": true } } },
+          "then": { "required": ["character", "entersAt"] },
+          "else": {
+            "not": {
+              "anyOf": [
+                { "required": ["character"] },
+                { "required": ["entersAt"] },
+                { "required": ["duckUnderVoice"] },
+                { "required": ["levelDbUnderVoice"] }
+              ]
+            }
           }
         },
         "sfx": {

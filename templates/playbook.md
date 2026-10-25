@@ -19,7 +19,7 @@ format:
   fps: 30
   durationSec: { min: 6, max: 15, reference: 6 }
   onCamera: none
-  speech: none
+  speech: voiceover
   safeArea: { top: 0.11, bottom: 0.25, left: 0.03, right: 0.18 }
 hook:
   type: text-promise
@@ -64,7 +64,7 @@ audio:
     levelDbUnderVoice: null
   sfx:
     - { cue: card-in, type: 効果音の種類を言葉で。素材名は書かない }
-  voice: none
+  voice: own-voiceover
   referenceAudioUsed: false
 routes:
   - id: code-motion
@@ -86,12 +86,17 @@ rights:
 evidence:
   measured: []
   inferred: [hook.type, beats, format.safeArea, captions.c1.stroke]
-  unmeasured: [captions.c1.capHeightRatio, captions.c1.position.cy, captions.c1.minHoldSec]
+  unmeasured:
+    - captions.c1.capHeightRatio
+    - captions.c1.position.cy
+    - captions.c1.minHoldSec
+    - audio.bgm.duckUnderVoice
+    - audio.bgm.levelDbUnderVoice
 ---
 
 # 型の短い名前
 
-本文の見出しは、この順で全部置く。書けない節は、消さずに「未計測」か「該当なし」と一行で書く。数はフロントマターが正本で、本文は理由と手順を書く。参照動画の文言、曲名、作者名、フレームの画像は書かない。
+本文の見出しは、この順で全部置く。null の意味は欄ごとに一つで、スキーマの各欄の説明にある。未計測の null は `evidence.unmeasured` に載せる。型に無い任意の欄（声の無い型の `audio.bgm.levelDbUnderVoice` など）は null にせず書かない。書けない節は、消さずに「未計測」か「該当なし」と一行で書く。数はフロントマターが正本で、本文は理由と手順を書く。参照動画の文言、曲名、作者名、フレームの画像は書かない。
 
 ## 構成と尺
 

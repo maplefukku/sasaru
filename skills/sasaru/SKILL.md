@@ -14,7 +14,7 @@ sasaru は、流行っているショート動画の型を playbook として残
 - スキーマ: `../../schema/playbook.schema.json`
 - テンプレート: `../../templates/playbook.md`
 - 同梱の例: `../../playbooks/*.md`
-- スクリプト: `../../scripts/`
+- スクリプト: 各役の `../sasaru-<role>/scripts/`。playbook の検査の正本は `../sasaru-gate/scripts/validate_playbook.py`
 
 `sasaru-agent` に作業を渡すときは、このファイルの絶対パスをプロンプトに入れる。
 
