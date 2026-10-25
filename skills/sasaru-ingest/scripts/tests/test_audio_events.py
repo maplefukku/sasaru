@@ -155,6 +155,45 @@ def audio_subschema() -> dict:
     return sub
 
 
+def fragment(present: bool, speech: bool, beats=None, sfx=()) -> dict:
+    tempo = {"bpm": None}
+    segs = [{"tStart": 0.5, "tEnd": 2.0, "levelDb": -20.0}] if speech else []
+    bed = {"level": -40.0, "musicLike": 0.1, "sec": 1.0}
+    return ae.build_output(Path(__file__), 4.0, "none", beats, segs, [], {}, present, 0.3 if present else None,
+                           "exact", 4.0, [], bed, -20.0 if present and speech else None, None, False, None,
+                           None, None, tempo, np.zeros(0), list(sfx), np.zeros(SR, np.float32))
+
+
+@pytest.mark.parametrize("present,speech", [(True, True), (True, False), (False, True), (False, False)])
+def test_fragment_follows_the_bgm_and_voice_rules(present, speech):
+    import jsonschema
+
+    out = fragment(present, speech)
+    bgm = out["playbook"]["audio"]["bgm"]
+    jsonschema.Draft202012Validator(audio_subschema()).validate(
+        dict(out["playbook"]["audio"], voice=out["playbook"]["audio"].get("voice", "own-voiceover")))
+    if not present:
+        assert bgm == {"present": False}
+    else:
+        assert bgm["entersAt"] == {"beat": "b1", "offsetSec": 0.3}
+        assert isinstance(bgm["character"], str)
+        assert ("levelDbUnderVoice" in bgm) is speech and ("duckUnderVoice" in bgm) is speech
+    assert ("voice" in out["playbook"]["audio"]) is (not speech)
+    paths = sum(out["evidence"].values(), [])
+    assert len(paths) == len(set(paths))
+    assert all("[]" not in p for p in paths)
+
+
+def test_fragment_keys_effects_to_beats_with_indexed_evidence_paths():
+    hit = {"t": 2.5, "kind": "transient", "riseDb": 20.0, "label": "Whoosh, swoosh, swish", "tagLift": 0.3,
+           "beatAligned": False, "repeatsWithBeat": False, "nearSpeech": False, "confidence": 0.9}
+    beats = [{"id": "b1", "tIn": 0.0, "tOut": 2.0}, {"id": "b2", "tIn": 2.0, "tOut": 4.0}]
+    out = fragment(True, False, beats, [hit])
+    assert out["playbook"]["audio"]["sfx"] == [{"cue": "other", "type": "whoosh", "at": {"beat": "b2", "offsetSec": 0.5}}]
+    assert "audio.sfx[0].at" in out["evidence"]["measured"]
+    assert "audio.sfx[0].cue" in out["evidence"]["inferred"]
+
+
 def synth_music(bpm: float, dur: float, hits: list[float]) -> np.ndarray:
     from scipy.signal import butter, lfilter
 

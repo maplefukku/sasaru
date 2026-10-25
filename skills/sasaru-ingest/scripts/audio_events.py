@@ -51,8 +51,14 @@ estimates the BGM under the voice from the pauses, which is off when the BGM swe
 the voice, so it lands under evidence.inferred.
 
 --beats takes a playbook .md or a JSON list (or {"beats": [...]}) of {id, tIn, tOut}. With it, the
-playbook fragment carries times as {beat, offsetSec}. Without it, beat-keyed fields are left out
-and listed under evidence.unmeasured; seconds are always in the detail sections.
+playbook fragment carries times as {beat, offsetSec}. Without it, audio.bgm.entersAt is keyed to b1
+as if b1 starts at 0 s (and listed as inferred), and sound effects carry no at. Seconds are always
+in the detail sections.
+
+The fragment follows the schema's BGM rules: with BGM, character and entersAt are always written;
+without BGM, only present is. duckUnderVoice and levelDbUnderVoice are left out when the reference
+has no speech, and are null only when unmeasured (then listed in evidence.unmeasured). Evidence
+paths index list items, such as audio.sfx[0].cue.
 
 Output: <work_dir>/audio.json. --json prints the same to stdout. Logs go to stderr.
 Exit codes: 0 ok, 2 bad input.
@@ -805,42 +811,41 @@ def build_output(path, dur, mode, beats_tl, speech_segs, pause_segs, pause_info,
         else:
             bgm["character"] = "拍が取れない持続音の床。気分は聞いて書く"
         inferred.append("audio.bgm.character")
+        if enters is None:
+            enters, enters_bound = 0.0, "unknown"
         at = to_at(enters, beats_tl)
-        if at is not None:
-            bgm["entersAt"] = at
+        if at is None:
+            at = {"beat": "b1", "offsetSec": round(enters, 2)}
+            inferred.append("audio.bgm.entersAt")
+        else:
             (measured if enters_bound == "exact" else inferred).append("audio.bgm.entersAt")
-        else:
-            unmeasured.append("audio.bgm.entersAt")
-        bgm["duckUnderVoice"] = duck
-        (measured if duck is not None else unmeasured).append("audio.bgm.duckUnderVoice")
-        bgm["levelDbUnderVoice"] = r(level_rel)
-        if level_rel is None:
-            unmeasured.append("audio.bgm.levelDbUnderVoice")
-        else:
-            (measured if use_stems else inferred).append("audio.bgm.levelDbUnderVoice")
-    else:
-        bgm["entersAt"] = None
-        bgm["duckUnderVoice"] = None
-        bgm["levelDbUnderVoice"] = None
+        bgm["entersAt"] = at
+        if speech_present:
+            bgm["duckUnderVoice"] = duck
+            (measured if duck is not None else unmeasured).append("audio.bgm.duckUnderVoice")
+            bgm["levelDbUnderVoice"] = r(level_rel)
+            if level_rel is None:
+                unmeasured.append("audio.bgm.levelDbUnderVoice")
+            else:
+                (measured if use_stems else inferred).append("audio.bgm.levelDbUnderVoice")
 
     kept = [s for s in sfx if s["confidence"] >= 0.6]
     pb_sfx = []
-    for s in kept:
+    for i, s in enumerate(kept):
         item = {"cue": "other", "type": sfx_type(s["label"]) if s["label"] else "transient"}
         at = to_at(s["t"], beats_tl)
         if at is not None:
             item["at"] = at
+            measured.append(f"audio.sfx[{i}].at")
+        inferred += [f"audio.sfx[{i}].cue", f"audio.sfx[{i}].type"]
         pb_sfx.append(item)
-    measured.append("audio.sfx")
-    if pb_sfx:
-        inferred.append("audio.sfx[].cue")
+    if not pb_sfx:
+        measured.append("audio.sfx")
 
     audio = {"bgm": bgm, "sfx": pb_sfx, "referenceAudioUsed": False}
     if not speech_present:
         audio["voice"] = "none"
         inferred.append("audio.voice")
-    else:
-        unmeasured.append("audio.voice")
 
     peak = float(np.max(np.abs(y))) if y.size else 0.0
     return {
@@ -885,6 +890,8 @@ def build_output(path, dur, mode, beats_tl, speech_segs, pause_segs, pause_info,
         "evidence": {"measured": measured, "inferred": inferred, "unmeasured": unmeasured},
         "notes": [
             "playbook.audio is a fragment to merge. audio.voice is the recipe's voice and is set here only when the reference has no speech.",
+            "Without --beats, audio.bgm.entersAt is keyed to b1 as if b1 starts at 0 s, and sfx carry no at.",
+            "duckUnderVoice and levelDbUnderVoice are left out when the reference has no speech; every BGM field but present is left out when there is no BGM.",
             "audio.sfx[].cue is 'other' until the hit times are matched against cuts, cards and zooms.",
         ],
     }
