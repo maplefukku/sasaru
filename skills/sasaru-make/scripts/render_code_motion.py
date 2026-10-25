@@ -70,9 +70,10 @@ def fetch(url: str, dest: Path) -> Path:
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
     req = urllib.request.Request(url, headers={"User-Agent": "sasaru-make"})
-    with urllib.request.urlopen(req, timeout=120) as r, open(dest.with_suffix(dest.suffix + ".part"), "wb") as f:
+    tmp = dest.with_suffix(f"{dest.suffix}.{os.getpid()}.part")
+    with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
         shutil.copyfileobj(r, f)
-    dest.with_suffix(dest.suffix + ".part").rename(dest)
+    tmp.replace(dest)
     return dest
 
 

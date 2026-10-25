@@ -76,7 +76,7 @@ plan.py がすること。
 3. 尺を決め、参照の尺からの伸縮の比を出す。ビートの秒、ズーム、トランジション、効果音、BGM の入りを同じ比で動かす。帯の外の尺は入力の誤り。
 4. 層ごとの大きさを決める。`headline` の白い芯の高さが 0.04 未満か未計測なら 0.057 に上げ、逸脱に書く。ほかの層の未計測は役ごとの既定値で埋め、逸脱に書く。字の大きさは芯の高さ ÷ 0.92（Noto Sans JP 900 の漢字の行の実測）。漢字も仮名も無い英字だけの段は芯が大文字の高さ（0.74 em）までしか届かないので、その段だけ 0.92 ÷ 0.74 倍にする。
 5. テロップのカードの秒を決める。ビートの中を字数で割り、層の `show`（`onset`、`before-onset` と `leadSec`、`beat-start`）で出し、`hide`（`next-card`、`phrase-end`、`beat-end`）で消す。`lastCard: hold-to-end` の層の最後の一枚は絵の最後まで残す。`hook.firstFrameHasText` なら 0 秒の一枚を動かさずに出す。声のある型で声の時刻が無いときは、字数で割った推定だと警告する。
-6. 検査して警告に残す。`minHoldSec`（null なら 1.0 秒）より短い一枚、`charsPerCard` の外、`linesMax` を超える段、安全域からはみ出す幅（縮めて逸脱に書く。見出しが 0.04 を割るなら分けるよう警告）、強調の倍率で一つの段に大小が混ざること（その段は色だけにする）。
+6. 検査して警告に残す。`minHoldSec`（null なら 1.0 秒）より短い一枚、`charsPerCard` の外、`linesMax` を超える段、安全域からはみ出す幅（縮めて逸脱に書く。見出しが 0.04 を割るなら分けるよう警告）、安全域の上下からはみ出す段数（段を減らすよう警告）、強調の倍率で一つの段に大小が混ざること（その段は色だけにする）。
 7. 音を決める。BGM と効果音は別ファイルだけで、カットのフォルダの `audio/` に写し、sha256 とライセンスを記録する。効果音の秒は playbook の `cue`（`card-in` は最初の層のカードの出、`cut` はビートの頭、`zoom`、`payoff`、`beat-drop`）か `at` で決める。鳴る一回ごとに `audio.sources[]` に一行書く。既定にしてよいライセンスは `CC0-1.0`、`CC-BY-4.0`（`credit` が必須）、`own-work`。それ以外は「要承認」になり、描画は `--accept-license` が無いと止まる。参照動画の音を入力に指定したら拒否する。声と BGM が両方あるとき、`levelDbUnderVoice` が playbook にも content にも無ければ「要決定」にする。既定値は持たない。
 8. ルートの `needs` を手順にする。素材（`own-footage`、`screen-capture`、`stock-footage`）が無ければ「要決定」。生成（`image-gen`、`t2v`、`i2v`、`v2v`、`tts`）はアダプタの口で見積もりだけ取り「要承認」、口が無ければ「未実装」で残す。`r2v` はこのスキルの既定の手順に入れない。
 
@@ -118,13 +118,13 @@ uv run --script adapters/<need>.py run --request <req.json> --out <dir> --cap-us
 # stdout: {"files": [...], "usd": n}
 ```
 
-`req.json` は plan.py が `sasaru/cuts/<cut>/requests/<need>[-<beat>].json` に書く。欄は `need`、`cutId`、`beat`、`durationSec`、`aspect`、`fps`、`prompt`（TTS は `text`）、`inputs`。生成されたクリップの音は外してから `assets` に入れ、計画を書き直して描く。同じ入力の生成をやり直して見た目を探さない。
+`req.json` は plan.py が `sasaru/cuts/<cut>/requests/<need>[-<beat>].json` に書く。欄は `need`、`cutId`、`beat`、`durationSec`、`aspect`、`fps`、`prompt`（TTS は `text`）、`inputs`、`routeNeeds`（選んだルートの `needs`。アダプタは喋る人と顔の参照の許可をここだけで決める）。生成されたクリップの音は外してから `assets` に入れ、計画を書き直して描く。同じ入力の生成をやり直して見た目を探さない。
 
 ## Outputs
 
 `sasaru/cuts/<cut>/` に次を置く。コミットしてよいのは `cut.json` と `gate.json` だけで、映像、音、composition の素材はコミットしない。
 
-- `cut.json`（`sasaru-cut/1`）。形は設計書 §5.3 と `../sasaru-gate/SKILL.md` の Outputs が正本で、gate が読む鍵を必ず書く。`playbook`（id）、`playbookPath`（`cut.json` から見たパス）、`video`（`cut.mp4`）、`route` と `container`（文字列）、`routeRequestedByMaker`、`stretch`、`costUsd`（実際に払った額。このスキルは 0）、`cards[]`（`layer`、`start`、`end`、`text`、`emphasis`）、`captionStyle.<層>`（`fontFamily`、`fontClass`、`weight`、`shadow`、`plate`、`color`）、`audio.sources[]`（`role`、`path`、`license`、`atSec`、`inSec`）と `audio.referenceAudioUsed: false`、`deviations[]`（`path`、`from`、`to`、`reason`）。声の結びの窓 `lastMora` は TTS の時刻が来たら書く。make が足す鍵は `cutId`、`playbookSha256`、`content`、`routeInfo`、`format`、`beats`、`layers`、`camera`、`visuals`、`fonts`、`credits`、`steps`、`warnings`、`render` で、カードには `beat`、`lines`、`fitScale`、`lineScales` も付く。
+- `cut.json`（`sasaru-cut/1`）。形は `../sasaru-gate/SKILL.md` の Outputs が正本で、gate が読む鍵を必ず書く。`playbook`（id）、`playbookPath`（`cut.json` から見たパス）、`video`（`cut.mp4`）、`route` と `container`（文字列）、`routeRequestedByMaker`、`stretch`、`costUsd`（実際に払った額。このスキルは 0）、`cards[]`（`layer`、`start`、`end`、`text`、`emphasis`）、`captionStyle.<層>`（`fontFamily`、`fontClass`、`weight`、`shadow`、`plate`、`color`）、`audio.sources[]`（`role`、`path`、`license`、`atSec`、`inSec`）と `audio.referenceAudioUsed: false`、`deviations[]`（`path`、`from`、`to`、`reason`）。声の結びの窓 `lastMora` は TTS の時刻が来たら書く。make が足す鍵は `cutId`、`playbookSha256`、`content`、`routeInfo`、`format`、`beats`、`layers`、`camera`、`visuals`、`fonts`、`credits`、`steps`、`warnings`、`render` で、カードには `beat`、`lines`、`fitScale`、`lineScales` も付く。
 - `audio/`。聞こえる音の各ファイルの写し。`audio.sources[].path` はここを指す。
 - `gate.json`。gate のカット検査の結果。
 - `requests/*.json`。生成の口に渡す依頼。

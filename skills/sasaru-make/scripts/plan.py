@@ -437,6 +437,11 @@ class Plan:
                 width = max(width, lw)
             fit = min(1.0, avail * 0.98 / width) if width else 1.0
             c["fitScale"] = round(fit, 4)
+            core = ((len(c["lines"]) - 1) * 1.2 + CAP_PER_EM) * L["fontPx"] * fit / self.h
+            cy = L["position"]["cy"]
+            if cy - core / 2 < safe["top"] - 1e-6 or cy + core / 2 > 1 - safe["bottom"] + 1e-6:
+                self.warnings.append(f"{tag} spans {cy - core / 2:.3f}–{cy + core / 2:.3f} of the height, outside the safe area "
+                                     f"{safe['top']}–{1 - safe['bottom']:.2f}; use fewer lines")
             if fit < 1.0:
                 eff = L["capHeightRatio"] * fit
                 self.deviations.append({"path": f"cards.{L['id']}.{c['beat']}.{c['index']}.size", "from": 1.0,
@@ -559,7 +564,8 @@ class Plan:
         sid = f"{need}-{beat}" if beat else need
         req = {"need": need, "cutId": self.cut_id, "beat": beat, "durationSec": payload.get("durationSec"),
                "aspect": self.pb["format"]["aspect"], "fps": self.pb["format"]["fps"],
-               "prompt": payload.get("prompt"), "text": payload.get("text"), "inputs": payload.get("inputs", [])}
+               "prompt": payload.get("prompt"), "text": payload.get("text"), "inputs": payload.get("inputs", []),
+               "routeNeeds": list(self.route_needs)}
         req = {k: v for k, v in req.items() if v is not None or k in ("need", "cutId", "beat")}
         req_path = self.cut_dir / "requests" / f"{sid}.json"
         req_path.parent.mkdir(parents=True, exist_ok=True)
@@ -636,6 +642,7 @@ class Plan:
         self.cut_dir = home_dir(self.args.home) / "cuts" / self.cut_id
         self.cut_dir.mkdir(parents=True, exist_ok=True)
         route = self.route()
+        self.route_needs = route["needs"]
         self.timeline()
         layers = self.layers()
         fonts = self.fonts()
