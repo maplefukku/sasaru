@@ -1,0 +1,20 @@
+{
+  "name": "sasaru",
+  "version": "0.1.0",
+  "description": "Turn a trending short you hand it into a reusable format playbook, then pick a playbook and make your own cuts with it. No talking-head generation by default.",
+  "author": {
+    "name": "maplefukku"
+  },
+  "homepage": "https://github.com/maplefukku/sasaru",
+  "repository": "https://github.com/maplefukku/sasaru",
+  "license": "MIT",
+  "keywords": [
+    "sasaru",
+    "short-video",
+    "reels",
+    "format",
+    "playbook",
+    "captions",
+    "motion-graphics"
+  ]
+}

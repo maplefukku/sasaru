@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/maplefukku/sasaru/schema/playbook.schema.json",
+  "title": "sasaru playbook frontmatter",
+  "description": "YAML frontmatter of one playbook file. One file is one short-video format. Numbers describe the form, never the source work: no caption wording, no audio, no frames, no creator identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "name",
+    "status",
+    "summary",
+    "tags",
+    "fitsContent",
+    "source",
+    "format",
+    "hook",
+    "beats",
+    "captions",
+    "camera",
+    "audio",
+    "routes",
+    "fonts",
+    "rights",
+    "evidence"
+  ],
+  "properties": {
+    "schema": { "const": "sasaru-playbook/1" },
+    "id": {
+      "description": "Kebab-case. Equals the file name without .md.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "status": {
+      "description": "draft: inferred only. measured: numbers came from ingest. produced: at least one cut was made with this playbook and passed the gate.",
+      "enum": ["draft", "measured", "produced"]
+    },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "tags": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }, "uniqueItems": true },
+    "fitsContent": {
+      "description": "Kinds of the maker's own content this format can carry, for the pick step.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "platform", "rightsTier", "measuredFiles"],
+      "properties": {
+        "kind": { "enum": ["ingested", "hand-written"] },
+        "platform": { "enum": ["instagram-reels", "tiktok", "youtube-shorts", "other", "none"] },
+        "rightsTier": {
+          "description": "A own work, B licensed, C third-party public (analysis only), none for hand-written.",
+          "enum": ["A", "B", "C", "none"]
+        },
+        "ingestedAt": { "type": "string", "format": "date" },
+        "measuredFiles": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "format": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aspect", "fps", "durationSec", "hardCuts", "onCamera", "speech"],
+      "properties": {
+        "aspect": { "enum": ["9:16", "4:5", "1:1", "16:9"] },
+        "fps": { "type": "number", "exclusiveMinimum": 0 },
+        "durationSec": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "number", "exclusiveMinimum": 0 },
+            "max": { "type": "number", "exclusiveMinimum": 0 },
+            "reference": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "hardCuts": { "type": ["integer", "null"], "minimum": 0 },
+        "onCamera": {
+          "description": "How a person appears. face means a face is on screen.",
+          "enum": ["none", "hands", "body-no-face", "face"]
+        },
+        "speech": { "enum": ["none", "voiceover", "on-camera"] }
+      }
+    },
+    "hook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "endsAtSec", "firstFrameHasText"],
+      "properties": {
+        "type": {
+          "enum": [
+            "question",
+            "list-promise",
+            "contradiction",
+            "visual-shock",
+            "text-promise",
+            "pov",
+            "countdown",
+            "before-after",
+            "other"
+          ]
+        },
+        "endsAtSec": { "type": "number", "minimum": 0 },
+        "firstFrameHasText": { "type": "boolean" }
+      }
+    },
+    "beats": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "role", "tIn", "tOut", "purpose", "swap"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^b[0-9]+$" },
+          "role": { "enum": ["hook", "setup", "item", "turn", "payoff", "cta", "loop", "pause"] },
+          "tIn": { "type": "number", "minimum": 0 },
+          "tOut": { "type": "number", "exclusiveMinimum": 0 },
+          "purpose": { "description": "What the beat does for the viewer. No source wording.", "type": "string", "minLength": 1 },
+          "swap": { "description": "What the maker puts here from their own content.", "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "captions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role"],
+      "properties": {
+        "role": { "enum": ["headline", "subtitle", "none"] },
+        "unit": { "enum": ["word", "phrase", "line", "card"] },
+        "font": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["class", "weight"],
+          "properties": {
+            "class": {
+              "enum": ["extra-bold-gothic", "bold-gothic", "thin-sans", "rounded", "mincho", "handwritten", "mono", "other"]
+            },
+            "weight": { "type": "integer", "minimum": 100, "maximum": 1000 }
+          }
+        },
+        "capHeightRatio": {
+          "description": "Height of one line's white core divided by frame height. null when not measured.",
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "emphasisScale": { "description": "Emphasis line height over base line height.", "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "stroke": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["color", "px1080"],
+          "properties": {
+            "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "px1080": { "description": "Stroke width in px at 1080 px frame width.", "type": "number", "minimum": 0 }
+          }
+        },
+        "shadow": { "type": "boolean" },
+        "plate": { "enum": ["none", "box", "pill"] },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cx", "cy", "align"],
+          "properties": {
+            "cx": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "cy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "align": { "enum": ["left", "center", "right"] }
+          }
+        },
+        "linesMax": { "type": "integer", "minimum": 1 },
+        "charsPerCard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "motionIn": { "enum": ["cut", "pop", "fade", "slide-up", "typewriter", "word-by-word", "scale-in", "other"] },
+        "motionOut": { "enum": ["cut", "fade", "slide", "other"] },
+        "show": { "enum": ["onset", "before-onset", "beat-start"] },
+        "hide": { "enum": ["next-card", "phrase-end", "beat-end"] },
+        "lastCard": { "enum": ["hold-to-end", "phrase-end"] }
+      },
+      "if": { "properties": { "role": { "enum": ["headline", "subtitle"] } } },
+      "then": {
+        "required": [
+          "unit",
+          "font",
+          "capHeightRatio",
+          "color",
+          "stroke",
+          "shadow",
+          "plate",
+          "position",
+          "linesMax",
+          "charsPerCard",
+          "motionIn",
+          "motionOut",
+          "show",
+          "hide",
+          "lastCard"
+        ]
+      }
+    },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["move", "zooms", "transitions"],
+      "properties": {
+        "move": { "enum": ["static", "handheld", "push-in", "pull-out", "pan", "mixed"] },
+        "zooms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["atSec", "scaleFrom", "scaleTo", "durSec", "easing"],
+            "properties": {
+              "atSec": { "type": "number", "minimum": 0 },
+              "scaleFrom": { "type": "number", "exclusiveMinimum": 0 },
+              "scaleTo": { "type": "number", "exclusiveMinimum": 0 },
+              "durSec": { "type": "number", "minimum": 0 },
+              "easing": { "enum": ["linear", "ease-in", "ease-out", "ease-in-out", "snap"] }
+            }
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["atSec", "type"],
+            "properties": {
+              "atSec": { "type": "number", "minimum": 0 },
+              "type": { "enum": ["hard-cut", "whip", "zoom-cut", "fade", "match-cut", "glitch"] }
+            }
+          }
+        }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bgm", "sfx", "voice", "referenceAudioUsed"],
+      "properties": {
+        "bgm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["present"],
+          "properties": {
+            "present": { "type": "boolean" },
+            "character": { "description": "Mood and tempo in words. Never a track title.", "type": "string" },
+            "entersAtSec": { "type": ["number", "null"], "minimum": 0 },
+            "duckUnderVoice": { "type": ["boolean", "null"] }
+          }
+        },
+        "sfx": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["on", "type"],
+            "properties": {
+              "on": { "enum": ["card-in", "cut", "zoom", "payoff", "beat-drop", "other"] },
+              "type": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "voice": { "enum": ["none", "tts-voiceover", "own-voiceover", "on-camera"] },
+        "referenceAudioUsed": { "const": false }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "default", "container", "needs", "paidApi", "talkingHead", "costUsdPerVideo", "status"],
+        "properties": {
+          "id": {
+            "enum": ["code-motion", "caption-over-footage", "screen-recording", "image-gen-stills", "t2v", "i2v", "v2v", "r2v-talking"]
+          },
+          "default": { "type": "boolean" },
+          "container": { "enum": ["ffmpeg-ass", "remotion", "hyperframes", "three-js", "html-canvas", "capcut", "other"] },
+          "needs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "enum": ["none", "image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync", "tts", "screen-capture", "own-footage", "stock-footage"]
+            },
+            "uniqueItems": true
+          },
+          "paidApi": { "type": "boolean" },
+          "talkingHead": { "type": "boolean" },
+          "costUsdPerVideo": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["min", "max", "basis"],
+            "properties": {
+              "min": { "type": "number", "minimum": 0 },
+              "max": { "type": "number", "minimum": 0 },
+              "basis": { "type": "string", "minLength": 1 }
+            }
+          },
+          "status": { "enum": ["design-only", "written", "tested"] }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "id": { "const": "r2v-talking" } } },
+            "then": { "properties": { "default": { "const": false }, "talkingHead": { "const": true } } }
+          },
+          {
+            "if": { "properties": { "talkingHead": { "const": true } } },
+            "then": { "properties": { "default": { "const": false } } }
+          },
+          {
+            "if": { "properties": { "paidApi": { "const": false } } },
+            "then": { "properties": { "costUsdPerVideo": { "properties": { "min": { "const": 0 }, "max": { "const": 0 } } } } }
+          }
+        ]
+      },
+      "contains": { "type": "object", "properties": { "default": { "const": true } }, "required": ["default"] },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "fonts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "license", "source"],
+        "properties": {
+          "family": { "type": "string", "minLength": 1 },
+          "license": { "description": "SPDX id when one exists, such as OFL-1.1.", "type": "string", "minLength": 1 },
+          "source": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["makerSupplies", "neverUse"],
+      "properties": {
+        "makerSupplies": {
+          "description": "Assets the maker must hold rights to before making a cut.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "neverUse": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      }
+    },
+    "evidence": {
+      "description": "Dotted paths into this frontmatter, grouped by how the value was obtained.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured", "inferred", "unmeasured"],
+      "properties": {
+        "measured": { "type": "array", "items": { "type": "string" } },
+        "inferred": { "type": "array", "items": { "type": "string" } },
+        "unmeasured": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
