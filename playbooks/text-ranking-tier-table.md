@@ -158,8 +158,6 @@ audio:
     present: true
     character: 明るく軽いインスト。中速で一定の刻み。尺の中に盛り上がりや終止を作らず、どこで切れても頭につながる
     entersAt: { beat: b1, offsetSec: 0 }
-    duckUnderVoice: null
-    levelDbUnderVoice: null
   sfx:
     - { cue: card-in, at: { beat: b3, offsetSec: 0 }, type: 短く軽いポップ音（ポン） }
   voice: none
@@ -226,8 +224,6 @@ evidence:
     - captions.c3.position.cx
     - captions.c3.position.cy
     - captions.c5.capHeightRatio
-    - audio.bgm.duckUnderVoice
-    - audio.bgm.levelDbUnderVoice
 ---
 
 # 文字だけランキング・Tier 表
@@ -343,7 +339,7 @@ HTML で表を一枚組み、ヘッドレス Chrome で 1080×1920 の PNG を2�
    ```
 
 2. `table.html` を書く。決まりは次のとおり。
-   - `html, body` を 1080×1920 に固定し、`@font-face` で `fonts/NotoSansJP.ttf` を読む。
+   - `html, body` を 1080×1920 に固定し、CSS の font-face 規則で `fonts/NotoSansJP.ttf` を読み、`font-family` に `"Noto Sans JP"` を当てる。
    - 安全域の内側に縦の flex の箱を置く（上 211 px、下 480 px、左右 32 px）。中身は上から表題（c1、900、76 px 前後、2 行、強調語は `<em>` で `#E60033`）、白い角丸の表（`flex: 1`）、注記（c4、24 px）。
    - 表は帯ごとに1行の flex。左に帯の名前の色の四角（c2、幅 104 px、白い 900）、右に項目（c3、700、33 px 前後、行間 1.36、幅 730 px で右端を画面幅の 0.82 に止める）。
    - 印を付ける行に、枠と札の要素を入れておく。通常は `display: none`。
