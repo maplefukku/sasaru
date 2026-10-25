@@ -8,7 +8,7 @@
 # [tool.uv]
 # exclude-newer = "2026-10-25T00:00:00Z"
 # ///
-"""Tests for people_voice.py. Run: uv run skills/sasaru-ingest/scripts/tests/test_people_voice.py
+"""Tests for people_voice.py. Run: uv run skills/sasaru-ingest/tests/test_people_voice.py
 
 The end-to-end test fetches the MediaPipe models and runs the script on a synthetic clip without a
 face. It is skipped unless SASARU_SLOW=1.
@@ -25,8 +25,9 @@ import numpy as np
 import pytest
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))
-REPO = HERE.parents[3]
+SCRIPTS = HERE.parent / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+REPO = HERE.parents[2]
 
 import people_voice as pv  # noqa: E402
 
@@ -107,7 +108,7 @@ def test_end_to_end_without_a_face(tmp_path):
     events.write_text(json.dumps({"tool": "audio_events", "stage": "mix",
                                   "speech": {"segments": [{"tStart": 0.5, "tEnd": 5.5}]}}))
     work = tmp_path / "work"
-    p = subprocess.run(["uv", "run", "-q", "--script", str(HERE.parent / "people_voice.py"), str(clip), str(work),
+    p = subprocess.run(["uv", "run", "-q", "--script", str(SCRIPTS / "people_voice.py"), str(clip), str(work),
                         "--audio-events", str(events), "--json"], capture_output=True, text=True)
     assert p.returncode == 0, p.stderr
     out = json.loads(p.stdout)

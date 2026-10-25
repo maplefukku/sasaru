@@ -10,7 +10,7 @@
 # ///
 """Tests for camera_motion.py on synthetic videos with known camera moves and transitions.
 
-Run: uv run --script skills/sasaru-ingest/scripts/tests/test_camera_motion.py
+Run: uv run --script skills/sasaru-ingest/tests/test_camera_motion.py
 Videos are generated into a temp directory and never written to the repository.
 Set CAMERA_MOTION_KEEP=<dir> to keep the generated videos and camera.json files.
 """
@@ -28,10 +28,11 @@ import numpy as np
 import pytest
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))
+SCRIPTS = HERE.parent / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 import camera_motion as cm  # noqa: E402
 
-REPO = HERE.parents[3]
+REPO = HERE.parents[2]
 SCHEMA = REPO / "schema" / "playbook.schema.json"
 FPS = 30
 W, H = 540, 960

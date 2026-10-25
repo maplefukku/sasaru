@@ -12,7 +12,7 @@
 # [tool.uv]
 # exclude-newer = "2026-10-25T00:00:00Z"
 # ///
-"""Tests for audio_events.py. Run: uv run skills/sasaru-ingest/scripts/tests/test_audio_events.py
+"""Tests for audio_events.py. Run: uv run skills/sasaru-ingest/tests/test_audio_events.py
 
 The end-to-end test downloads the models and runs the script on synthetic audio. It is skipped
 unless SASARU_SLOW=1.
@@ -28,8 +28,9 @@ import numpy as np
 import pytest
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))
-REPO = HERE.parents[3]
+SCRIPTS = HERE.parent / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+REPO = HERE.parents[2]
 
 import audio_events as ae  # noqa: E402
 
@@ -248,7 +249,7 @@ def test_end_to_end_on_synthetic_drums_with_effects(tmp_path):
     beats = tmp_path / "beats.json"
     beats.write_text(json.dumps([{"id": "b1", "tIn": 0, "tOut": 4}, {"id": "b2", "tIn": 4, "tOut": 12}]))
     work = tmp_path / "work"
-    p = subprocess.run(["uv", "run", "-q", "--script", str(HERE.parent / "audio_events.py"), str(wav), str(work),
+    p = subprocess.run(["uv", "run", "-q", "--script", str(SCRIPTS / "audio_events.py"), str(wav), str(work),
                         "--beats", str(beats), "--json"], capture_output=True, text=True)
     assert p.returncode == 0, p.stderr
     out = json.loads(p.stdout)
