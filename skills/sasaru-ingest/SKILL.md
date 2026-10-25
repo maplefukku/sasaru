@@ -71,7 +71,7 @@ uv run --script <skill>/scripts/draft_playbook.py <home>/work/<id> --id <id>
 
 下書きの `未記入` を全部書き換える。
 
-- `name`、`summary`、`fitsContent`、`hook.type`、ビートの `role`、`purpose`、`swap`、本文の「なぜ伸びるか」「差し替える場所」。元の文言を言い換えて写さず、見る人にとっての役割で書く。「なぜ伸びるか」は推論と明記し、伸びない側に落ちない理由を分ける。判断は強いモデルに書かせる（ルーターの Subagents）。
+- `name`、`summary`、`audience`（任意の欄。書けなければ消す）、`fitsContent`、`hook.type`、ビートの `role`、`purpose`、`swap`、本文の「なぜ伸びるか」「差し替える場所」。元の文言を言い換えて写さず、見る人にとっての役割で書く。「なぜ伸びるか」は推論と明記し、伸びない側に落ちない理由を分ける。判断は強いモデルに書かせる（ルーターの Subagents）。
 - 仮置きの欄（`evidence.unmeasured` にあるもの）は、シートで読めたら推論として入れて `inferred` に移す。読めなければ値はそのまま、パスは `unmeasured` に残す。
 - 喋る人の参照なら、`source.reference.onCamera: face`、`speech: on-camera` を書く（推論なら `inferred`）。作るカットの `format.onCamera` は `face` にせず、既定ルートは喋らないルートのままにする（**sasaru-principle-no-talking-head-by-default**）。失うもの（顔と口が作る視線の引き）を「なぜ伸びるか」に書く。
 - テロップの大きさは測った値のまま書く。細い字でも引き上げない。引き上げは make が行う（**sasaru-principle-captions-read-as-headlines**）。

@@ -449,7 +449,7 @@ def main():
     zoom_t = [z["at"]["offsetSec"] + next(b["tIn"] for b in beats if b["id"] == z["at"]["beat"]) for z in camera["zooms"]]
     audio, audio_notes = audio_block(probe, onsets, audio_ev, beats, cards, cuts, zoom_t, fmt_speech, ev)
     routes = route_list(ref, ev)
-    ev.u("hook.type", "name", "summary", "fitsContent")
+    ev.u("hook.type", "name", "summary", "audience", "fitsContent")
     if layers:
         ev.i("fonts")
 
@@ -460,6 +460,7 @@ def main():
         "status": "measured",
         "summary": f"{TODO}: この型を一文で。何が画面に出て、どこで見る人が止まるか",
         "tags": [],
+        "audience": [f"{TODO}: 誰に向けた型か"],
         "fitsContent": [f"{TODO}: この型に載せられる自分のコンテンツの種類"],
         "source": {"kind": "ingested", "platform": a.platform, "rightsTier": prov["rightsTier"],
                    "ingestedAt": str(prov["ingestedAt"]), "measuredFiles": 1, "reference": ref},
