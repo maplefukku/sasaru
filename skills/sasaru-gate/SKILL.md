@@ -50,8 +50,8 @@ playbook は `cut.json` の `playbookPath`、`$SASARU_HOME/playbooks/`、`sasaru
 | `format.*` | ffprobe と、全フレームの枚数 | 縦横比、fps、尺の帯 |
 | `beats.boundaries` | テロップのカードの切り替わりとハードカット | 最短のビートの半分以内に、各ビートの終わりがある |
 | `camera.transitions` | HSV のフレーム差 | 急な切り替えが書いた秒にだけある。フェードは見ない |
-| `captions.<層>.capHeightRatio`、`headlineFloor` | 層の色か `emphasis.color` に合い、縁の色に接する画素の行の箱。各カードの安定したフレームを原寸で測る。地の段は層の色の段 | playbook の値（`cut.json` の逸脱があればその値）。`headline` は 0.04 以上 |
-| `captions.<層>.emphasis.*`、`position.*`、`safeArea`、`linesMax` | 同じ箱。強調の段は `emphasis.color` の段（色が無ければいちばん高い段） | 倍率、強調色、cx、cy、揃え、`format.safeArea`、同時の段数 |
+| `captions.<層>.capHeightRatio`、`headlineFloor` | 層の色か `emphasis.color` に合い、縁の色に接する画素の行の箱。各カードの安定したフレームを原寸で測る。地の段は層の色の段。座布団（`plate` が `none` 以外）の暗い字は明るい塊の中だけで探し、明るい字は明るい塊の中では探さない。同じ段を複数の層の画素が拾ったら、cy の近い層に渡す | playbook の値（`cut.json` の逸脱があればその値）。`headline` は 0.04 以上 |
+| `captions.<層>.emphasis.*`、`position.*`、`safeArea`、`linesMax` | 同じ箱。強調の段は `emphasis.color` の段（色が無ければいちばん高い段）。強調色は、段の芯の 1 割以上がその色なら、一語だけの強調でも読む | 倍率、強調色、cx、cy、揃え、`format.safeArea`、同時の段数 |
 | `captions.<層>.show`、`hide`、`minHoldSec`、`lastCard` | カードの出た秒と消えた秒、声の頭と終わり。声の無い型は `cut.json` の予定の秒 | 層の規則。最後のカードは層の最後のビートの終わりまで残る |
 | `captions.<層>.motionIn`、`motionOut` | 出入りの 0.5 秒の箱の変化。幅が 2% 以上動けば拡大系で、行き過ぎがあれば `pop`、育つだけなら `scale-in`。`pop` と `scale-in` の層は、切れ目なく育つ出だしを同じカードにまとめる | 層の値。`pop` と `scale-in` は同じ系として合格 |
 | `captions.<層>.stroke`、`color` | 字の上側の縁の色の帯（影は下に落ちるので上側だけ読む）。背景が縁より明るいカードだけを使う。芯の色 | 縁の有無。どのカードも上側が縁の 3 倍まで暗い画は未計測 |

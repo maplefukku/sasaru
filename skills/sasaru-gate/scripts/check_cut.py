@@ -183,6 +183,56 @@ def text_mask(fr, colors, ctol, stroke, stol, k):
     return core & cv2.dilate(dark, np.ones((k, k), np.uint8)), dark
 
 
+def plate_blocks(fr, m):
+    """Solid light blocks, filled to their bounding boxes: a box or pill plate behind dark text, or a light ground.
+    Glyph strokes are thinner than plateMinFrac of the frame height, so an opening keeps only the blocks. Lines of
+    text split a plate into pieces (its margins), so pieces that share their rows are joined into one block."""
+    light = (fr.min(axis=2) >= 255 - m["captionColorTol"]).astype(np.uint8)
+    k = max(3, int(round(m["plateMinFrac"] * fr.shape[0])))
+    opened = cv2.morphologyEx(light, cv2.MORPH_OPEN, np.ones((k, k), np.uint8))
+    n, _, stats, _ = cv2.connectedComponentsWithStats(opened)
+    boxes = [[int(x), int(y), int(x + bw), int(y + bh)] for x, y, bw, bh in stats[1:n, :4]]
+    merged = True
+    while merged:
+        merged = False
+        for a in range(len(boxes)):
+            for b in range(a + 1, len(boxes)):
+                A, B = boxes[a], boxes[b]
+                if min(A[3], B[3]) - max(A[1], B[1]) > 0.5 * min(A[3] - A[1], B[3] - B[1]):
+                    boxes[a] = [min(A[0], B[0]), min(A[1], B[1]), max(A[2], B[2]), max(A[3], B[3])]
+                    del boxes[b]
+                    merged = True
+                    break
+            if merged:
+                break
+    out = np.zeros_like(light)
+    for x0, y0, x1, y1 in boxes:
+        out[y0:y1, x0:x1] = 1
+    return out
+
+
+def layer_mask(fr, L, m, k, plates):
+    """Dark text on a plate is looked for only inside light blocks; light text never inside one.
+    The ground shows through a rounded plate's corners; text sits inside the padding, so dark pieces touching the edge go."""
+    mask, dark = text_mask(fr, L.colors, m["captionColorTol"], L.stroke, m["strokeColorTol"], k)
+    if L.dark_text:
+        if L.plated:
+            mask &= plates
+            n, labels = cv2.connectedComponents(mask)
+            edge = plates & (1 - cv2.erode(plates, np.ones((3, 3), np.uint8)))
+            touching = np.unique(labels[(edge > 0) & (mask > 0)])
+            mask[np.isin(labels, touching[touching > 0])] = 0
+    else:
+        mask &= 1 - plates
+    return mask, dark
+
+
+def lines_overlap(a, b):
+    rows = min(a["bottom"], b["bottom"]) - max(a["top"], b["top"])
+    cols = min(a["right"], b["right"]) - max(a["left"], b["left"])
+    return rows > 0.5 * min(a["bottom"] - a["top"], b["bottom"] - b["top"]) and cols > 0
+
+
 def lines_of(mask, min_px, gap):
     rr = runs(mask.sum(axis=1) > 0)
     merged = []
@@ -227,10 +277,13 @@ class Layer:
         self.stroke = hex_to_bgr(stroke["color"]) if stroke else None
         self.cy = (cfg.get("position") or {}).get("cy")
         self.grows_in = cfg.get("motionIn") in ("pop", "scale-in")
+        self.dark_text = int(self.color.sum()) < 384
+        self.plated = (style.get("plate") or cfg.get("plate") or "none") != "none"
         self.frames = []
 
     def key(self):
-        return (tuple(tuple(c) for c in self.colors), None if self.stroke is None else tuple(self.stroke))
+        return (tuple(tuple(c) for c in self.colors), None if self.stroke is None else tuple(self.stroke),
+                self.dark_text and self.plated)
 
 
 def active(layer, t, beat_windows):
@@ -259,22 +312,30 @@ def scan(video, info, layers, m, roi, beat_windows):
         if layers:
             small = cv2.resize(fr, (w, h), interpolation=cv2.INTER_AREA)
             t = i / fps
+            plates = plate_blocks(small, m)
+            found_by = []
             for Ls in groups.values():
-                mask, _ = text_mask(small, Ls[0].colors, m["captionColorTol"], Ls[0].stroke, m["strokeColorTol"], k)
+                mask, _ = layer_mask(small, Ls[0], m, k, plates)
                 if roi:
                     mask[: int(roi[0] * h)] = 0
                     mask[int(roi[1] * h):] = 0
-                found = lines_of(mask, min_px, gap)
-                live = [L for L in Ls if active(L, t, beat_windows)]
-                per = {L.id: [] for L in Ls}
+                found_by.append((Ls, [L for L in Ls if active(L, t, beat_windows)], lines_of(mask, min_px, gap)))
+            # a line that several layer masks see (white text with and without a stroke) goes to the nearest live layer
+            per = {L.id: [] for L in layers}
+            for gi, (Ls, live, found) in enumerate(found_by):
                 for ln in found:
-                    if not live:
-                        break
+                    cands = list(live)
+                    for gj, (_, o_live, o_found) in enumerate(found_by):
+                        if gj != gi and any(lines_overlap(ln, o) for o in o_found):
+                            cands += o_live
+                    if not cands:
+                        continue
                     cy = (ln["top"] + ln["bottom"]) / 2 / h
-                    best = min(live, key=lambda L: abs(cy - L.cy) if L.cy is not None else 0.25)
-                    per[best.id].append(ln)
-                for L in Ls:
-                    L.frames.append(per[L.id])
+                    best = min(cands, key=lambda L: abs(cy - L.cy) if L.cy is not None else 0.25)
+                    if best in live:
+                        per[best.id].append(ln)
+            for L in layers:
+                L.frames.append(per[L.id])
         i += 1
     cap.release()
     return i, cuts, (w, h)
@@ -358,7 +419,7 @@ def measure_frame(video, idx, layer, m, roi, info, ref_lines, wh):
     if not ok:
         return []
     k = max(3, int(round(2 * m["strokeSearchPx1080"] * W / 1080)) | 1)
-    mask, dark = text_mask(fr, layer.colors, m["captionColorTol"], layer.stroke, m["strokeColorTol"], k)
+    mask, dark = layer_mask(fr, layer, m, k, plate_blocks(fr, m))
     emph = color_mask(fr, layer.emph_color, m["captionColorTol"]) & mask if layer.emph_color is not None else None
     if roi:
         mask[: int(roi[0] * H)] = 0
@@ -374,6 +435,8 @@ def measure_frame(video, idx, layer, m, roi, info, ref_lines, wh):
         sub[ln["top"]:ln["bottom"], ln["left"]:ln["right"]] = mask[ln["top"]:ln["bottom"], ln["left"]:ln["right"]]
         n_emph = int(emph[sub.astype(bool)].sum()) if emph is not None else 0
         is_emph = n_emph * 2 > int(sub.sum())
+        # a highlighted word inside a plain line: its colour counts once it is a tenth of the line's core
+        emph_px = fr[(sub & emph).astype(bool)] if emph is not None and n_emph * 10 >= int(sub.sum()) else []
         core = fr[sub.astype(bool)]
         top_runs, bottom_runs = [], []
         if dark is not None:
@@ -389,6 +452,7 @@ def measure_frame(video, idx, layer, m, roi, info, ref_lines, wh):
                     "cx": (ln["left"] + ln["right"]) / 2 / W, "cy": (ln["top"] + ln["bottom"]) / 2 / H,
                     "left": ln["left"] / W, "right": ln["right"] / W, "top": ln["top"] / H, "bottom": ln["bottom"] / H,
                     "emphasisColored": is_emph,
+                    "emphasisColor": bgr_to_hex(np.median(emph_px, axis=0)) if len(emph_px) else None,
                     "color": bgr_to_hex(np.median(core, axis=0)) if len(core) else None, "topRuns": top_runs, "bottomRuns": bottom_runs})
     return out
 
@@ -676,12 +740,12 @@ def main():
             rep.add(f"{P}.emphasis", "pass" if not big else "fail", {"scale": r(scale_m), "largerLines": len(big)}, None,
                     f"playbook:{P}.emphasis", note="null emphasis means one size inside the layer")
         if emph and emph.get("color"):
-            cols_e = [ln["color"] for ln in tinted if ln["color"]]
+            cols_e = [ln["emphasisColor"] for ln in all_lines if ln["emphasisColor"]]
             med_e = np.median(np.array([hex_to_bgr(c) for c in cols_e]), axis=0) if cols_e else None
             diff_e = int(np.abs(med_e - L.emph_color).max()) if med_e is not None else None
             rep.add(f"{P}.emphasis.color", "pass" if diff_e is not None and diff_e <= m["captionColorTol"] else "fail",
-                    {"lines": len(tinted), "color": bgr_to_hex(med_e) if med_e is not None else None}, emph["color"],
-                    f"playbook:{P}.emphasis.color", note=None if tinted else "no line in emphasis.color was found")
+                    {"lines": len(cols_e), "color": bgr_to_hex(med_e) if med_e is not None else None}, emph["color"],
+                    f"playbook:{P}.emphasis.color", note=None if cols_e else "no line in emphasis.color was found")
 
         pos = lc.get("position") or {}
         for key, vals in (("cx", [ln["cx"] for ln in all_lines]), ("cy", [ln["cy"] for ln in base])):
