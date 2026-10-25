@@ -5,6 +5,10 @@ name: タイムスタンプ無言 vlog（講義のある1日）
 status: draft
 summary: 朝から夜までを、時刻ラベル付きの1〜2秒のカットでつなぐ喋らない vlog。時刻が進むたびに場面が替わり、講義の終わりに答えの画（出来上がったノートなど）を置く。顔は出さない。
 tags: [vlog, timestamp, day-in-the-life, mini-vlog, no-talking, faceless, student]
+audience:
+  - 講義のある大学生
+  - 専門学校生や、試験前の高校生
+  - 他人の一日をのぞいて、自分の時間の使い方の参考にしたい人
 fitsContent:
   - 一日の流れの中で使うアプリや道具（録音、ノート、学習アプリ）
   - 講義の日、テスト期間、課題の日のルーティン
@@ -128,9 +132,9 @@ audio:
     duckUnderVoice: null
     levelDbUnderVoice: null
   sfx:
-    - { "on": card-in, type: 時刻が替わる合図の小さいクリックかポン }
-    - { "on": payoff, at: { beat: b5, offsetSec: 0 }, type: 短いきらめき音を一回 }
-    - { "on": cut, type: 自分で別に録った生活音（ドア、足音、ペン、キーボード、カップ）を画に合わせて }
+    - { cue: card-in, type: 時刻が替わる合図の小さいクリックかポン }
+    - { cue: payoff, at: { beat: b5, offsetSec: 0 }, type: 短いきらめき音を一回 }
+    - { cue: cut, type: 自分で別に録った生活音（ドア、足音、ペン、キーボード、カップ）を画に合わせて }
   voice: none
   referenceAudioUsed: false
 routes:
