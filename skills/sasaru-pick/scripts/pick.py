@@ -1,13 +1,17 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyyaml>=6", "jsonschema>=4.18"]
+# dependencies = ["pyyaml>=6,<7", "jsonschema>=4.18,<5"]
 # ///
-"""Pick one playbook for a maker's brief. Reads playbook frontmatter only. Calls no network API."""
+"""Pick one playbook for a maker's brief. Reads playbook frontmatter only. Calls no network API.
+
+Exit codes: 0 a result was written (any status), 2 the brief or arguments could not be read.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -18,15 +22,20 @@ import yaml
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_PATH = PLUGIN_ROOT / "schema" / "playbook.schema.json"
-DEFAULT_LIBRARIES = [Path.cwd() / "sasaru" / "playbooks", PLUGIN_ROOT / "playbooks"]
 
-NEEDS = {"none", "image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync", "tts", "screen-capture", "own-footage", "stock-footage"}
+NEEDS = {"image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync", "tts", "screen-capture", "own-footage", "stock-footage"}
 ASPECTS = {"9:16", "4:5", "1:1", "16:9"}
-VOICES = {"none", "tts-voiceover", "own-voiceover", "on-camera"}
+VOICES = {"none", "tts-voiceover", "own-voiceover"}
 PLAYBOOK_STATUS_RANK = {"produced": 2, "measured": 1, "draft": 0}
 ROUTE_STATUS_RANK = {"tested": 2, "written": 1, "design-only": 0}
 FIT_THRESHOLD = 0.3
-BRIEF_KEYS = {"content", "audience", "durationSec", "aspect", "assets", "budgetUsd", "voice", "allowTalkingHead", "allowFace", "tags"}
+CANDIDATES_SHOWN = 3
+BRIEF_KEYS = {"content", "audience", "playbook", "durationSec", "aspect", "assets", "budgetUsd", "voice", "allowTalkingHead", "tags"}
+
+
+def default_libraries() -> list[Path]:
+    home = Path(os.environ["SASARU_HOME"]) if os.environ.get("SASARU_HOME") else Path.cwd() / "sasaru"
+    return [home / "playbooks", PLUGIN_ROOT / "playbooks"]
 
 
 class BriefError(Exception):
@@ -156,8 +165,11 @@ def parse_brief(raw) -> dict:
     if not isinstance(content, dict):
         raise BriefError("content は {kind, message} か文字列")
     assets = raw.get("assets")
-    if assets is not None and (not isinstance(assets, list) or not set(map(str, assets)) <= NEEDS):
+    if assets is not None and (not isinstance(assets, list) or not set(map(str, assets)) <= NEEDS | {"none"}):
         raise BriefError(f"assets は次の語の列: {', '.join(sorted(NEEDS))}")
+    named = raw.get("playbook")
+    if named is not None and (not isinstance(named, str) or not named.strip()):
+        raise BriefError("playbook は playbook の id（文字列）")
     aspect = raw.get("aspect")
     if aspect is not None and str(aspect) not in ASPECTS:
         raise BriefError(f"aspect は {', '.join(sorted(ASPECTS))} のどれか")
@@ -176,13 +188,13 @@ def parse_brief(raw) -> dict:
         "kind": str(content.get("kind") or "").strip(),
         "message": str(content.get("message") or "").strip(),
         "audience": str(raw.get("audience") or "").strip(),
+        "playbook": named.strip() if named is not None else None,
         "duration": parse_duration(raw.get("durationSec")),
         "aspect": str(aspect) if aspect is not None else None,
-        "assets": set(assets) if assets is not None else None,
+        "assets": set(map(str, assets)) - {"none"} if assets is not None else None,
         "budget": float(budget) if budget is not None else None,
         "voice": set(voice) if voice is not None else None,
-        "allowTalkingHead": bool(raw.get("allowTalkingHead", False)),
-        "allowFace": bool(raw.get("allowFace", False)),
+        "allowTalkingHead": raw.get("allowTalkingHead") is True,
         "tags": [str(t) for t in tags],
         "unknownKeys": unknown,
     }
@@ -219,13 +231,16 @@ def choose_route(fm: dict, brief: dict):
     return None, [{"route": r["id"], "blockers": route_blockers(r, brief)} for r in routes], False
 
 
+def talking_reference(fm: dict) -> bool:
+    return (fm["source"].get("reference") or {}).get("speech") == "on-camera"
+
+
 def playbook_blockers(fm: dict, brief: dict) -> list[dict]:
     fmt, voice = fm["format"], fm["audio"]["voice"]
     blockers = []
-    if not brief["allowTalkingHead"] and (fmt["speech"] == "on-camera" or voice == "on-camera"):
-        blockers.append({"kind": "talking-head", "text": "人がカメラに喋る型（format.speech か audio.voice が on-camera）"})
-    if not brief["allowFace"] and fmt["onCamera"] == "face":
-        blockers.append({"kind": "face", "text": "顔が映る型（format.onCamera: face）"})
+    named = brief["playbook"] == fm["id"]
+    if talking_reference(fm) and not (brief["allowTalkingHead"] or named):
+        blockers.append({"kind": "talking-head", "text": "参照が人がカメラに喋る型（source.reference.speech: on-camera）。名指しか allowTalkingHead のときだけ選ぶ"})
     if brief["aspect"] and fmt["aspect"] != brief["aspect"]:
         blockers.append({"kind": "aspect", "text": f"画面比 {fmt['aspect']}（希望 {brief['aspect']}）"})
     if brief["duration"]:
@@ -234,8 +249,8 @@ def playbook_blockers(fm: dict, brief: dict) -> list[dict]:
         if hi < d["min"] or lo > d["max"]:
             want = f"{lo:g}" if lo == hi else f"{lo:g}〜{hi:g}"
             blockers.append({"kind": "duration", "text": f"尺 {d['min']:g}〜{d['max']:g} 秒（希望 {want} 秒）"})
-    allowed = brief["voice"] if brief["voice"] is not None else VOICES - {"on-camera"}
-    if voice not in allowed and voice != "on-camera":
+    allowed = brief["voice"] if brief["voice"] is not None else VOICES
+    if voice not in allowed:
         blockers.append({"kind": "voice", "text": f"声 {voice}（許す声: {', '.join(sorted(allowed))}）"})
     return blockers
 
@@ -282,7 +297,7 @@ def route_view(route: dict, is_default: bool) -> dict:
         "container": route["container"],
         "needs": route["needs"],
         "paidApi": route["paidApi"],
-        "costUsdPerVideo": {"min": cost["min"], "max": cost["max"], "basis": cost["basis"]},
+        "costUsdPerVideo": {k: cost[k] for k in ("min", "max", "basis", "asOf") if k in cost},
         "status": route["status"],
     }
 
@@ -306,17 +321,20 @@ def reasons_for(c: dict, brief: dict, runner_up: dict | None) -> list[str]:
     fm, route = c["fm"], c["route"]
     cost = route["costUsdPerVideo"]
     out = []
-    if c["matched"]:
+    if brief["playbook"] == c["id"]:
+        out.append("名指しされた型なので、この一本だけを条件と照らした")
+    if c["matched"] and c["fit"] > 0:
         out.append(f"載せたい内容が fitsContent の「{c['matched']}」に合う（一致 {c['fit']:.2f}）")
     if c["sharedTags"]:
         out.append(f"タグ {', '.join(c['sharedTags'])} が重なる")
     d = fm["format"]["durationSec"]
     if brief["duration"]:
         out.append(f"尺の帯 {d['min']:g}〜{d['max']:g} 秒が希望の尺に重なる")
-    on, voice = fm["format"]["onCamera"], fm["audio"]["voice"]
-    talking = fm["format"]["speech"] == "on-camera" or voice == "on-camera" or route["talkingHead"]
-    tail = "カメラに喋る人が出る（allowTalkingHead で許した）" if talking else "カメラに喋る人は出ない"
-    out.append(f"人の映り方は {on}、声は {voice}。{tail}")
+    on, speech, voice = fm["format"]["onCamera"], fm["format"]["speech"], fm["audio"]["voice"]
+    lead = "参照は人がカメラに喋る型。このレシピのカットは" if talking_reference(fm) else "作るカットは"
+    out.append(f"{lead}人の映り方 {on}、声 {speech}（{voice}）")
+    if route["talkingHead"]:
+        out.append("このルートは喋る人を出す。allowTalkingHead で許したときだけ選んだ")
     route_note = "既定ルート" if c["routeIsDefault"] else "既定ルートが条件に合わないための代わりのルート"
     out.append(f"{route_note} {route['id']}（器 {route['container']}、要るもの {', '.join(route['needs'])}、状態 {route['status']}）")
     paid = "有料 API を呼ぶ" if route["paidApi"] else "有料 API を呼ばない"
@@ -388,7 +406,17 @@ def pick(brief: dict, playbooks: dict, skipped: list, notes: list) -> dict:
     if not playbooks:
         result.update(status="empty-library", message="playbook が 1 本も無い。手元の参照動画を sasaru-ingest で取り込んでから選ぶ", missing=[])
         return result
-    if not brief["kind"] and not brief["message"]:
+    named = brief["playbook"]
+    if named is not None:
+        if named not in playbooks:
+            result.update(
+                status="need-info",
+                message=f"名指しの playbook {named} がライブラリに無い",
+                missing=[{"field": "playbook", "question": "次の id のどれか", "options": sorted(playbooks)}],
+            )
+            return result
+        playbooks = {named: playbooks[named]}
+    elif not brief["kind"] and not brief["message"]:
         result.update(
             status="need-info",
             message="何を伝えるかが無いので選べない",
@@ -397,8 +425,8 @@ def pick(brief: dict, playbooks: dict, skipped: list, notes: list) -> dict:
         )
         return result
     open_list, closed = evaluate(playbooks, brief)
-    fitting = [c for c in open_list if c["fit"] >= FIT_THRESHOLD]
-    result["candidates"] = [candidate_view(c) for c in open_list[:5]]
+    fitting = open_list if named else [c for c in open_list if c["fit"] >= FIT_THRESHOLD]
+    result["candidates"] = [candidate_view(c) for c in open_list[:CANDIDATES_SHOWN]]
     result["excluded"] = relaxations(closed)
     if fitting:
         top = fitting[0]
@@ -421,7 +449,7 @@ def pick(brief: dict, playbooks: dict, skipped: list, notes: list) -> dict:
         result.update(
             status="no-fit",
             message="条件に合う型はあるが、載せたい内容がどの型の fitsContent にも合わない。内容の種類を下の言葉で言い直すか、合う参照動画を取り込む",
-            missing=[{"field": "content.kind", "question": "次のどれに近いか", "options": {c["id"]: c["fm"]["fitsContent"] for c in open_list[:5]}}],
+            missing=[{"field": "content.kind", "question": "次のどれに近いか", "options": {c["id"]: c["fm"]["fitsContent"] for c in open_list}}],
         )
         return result
     missing, unlocks = unlocks_from_unknowns(closed, 0.0)
@@ -435,15 +463,20 @@ def pick(brief: dict, playbooks: dict, skipped: list, notes: list) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="ブリーフに合う playbook を 1 本選ぶ。JSON を標準出力に書く")
     ap.add_argument("--brief", required=True, help="ブリーフの YAML か JSON。- で標準入力")
-    ap.add_argument("--library", action="append", type=Path, help="playbook の置き場所。複数可。先に書いた方が優先。省略時は ./sasaru/playbooks とプラグインの playbooks/")
+    ap.add_argument(
+        "--library",
+        action="append",
+        type=Path,
+        help="playbook の置き場所。複数可。先に書いた方が優先。省略時は $SASARU_HOME/playbooks（無ければ ./sasaru/playbooks）とプラグインの playbooks/",
+    )
     args = ap.parse_args(argv)
     try:
         text = sys.stdin.read() if args.brief == "-" else Path(args.brief).read_text(encoding="utf-8")
         brief = parse_brief(yaml.safe_load(text))
     except (OSError, yaml.YAMLError, BriefError) as exc:
         print(json.dumps({"status": "bad-brief", "message": str(exc)}, ensure_ascii=False, indent=2))
-        return 1
-    dirs = args.library or DEFAULT_LIBRARIES
+        return 2
+    dirs = args.library or default_libraries()
     playbooks, skipped, notes = load_library(dirs)
     result = {"libraries": [str(d) for d in dirs if d.is_dir()]}
     result.update(pick(brief, playbooks, skipped, notes))

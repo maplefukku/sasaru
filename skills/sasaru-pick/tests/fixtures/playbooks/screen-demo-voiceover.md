@@ -16,41 +16,46 @@ source:
 format:
   aspect: "9:16"
   fps: 30
-  durationSec: { min: 20, max: 40 }
-  hardCuts: null
+  durationSec: { min: 20, max: 40, reference: 25 }
   onCamera: none
   speech: voiceover
 hook:
   type: question
-  endsAtSec: 2.0
   firstFrameHasText: true
 beats:
   - { id: b1, role: hook, tIn: 0.0, tOut: 2.0, purpose: 困りごとを問いで出す, swap: 自分の利用者の困りごと }
   - { id: b2, role: item, tIn: 2.0, tOut: 25.0, purpose: 操作を三手で見せる, swap: 自分のアプリの画面録画 }
 captions:
-  role: subtitle
-  unit: phrase
-  font: { class: bold-gothic, weight: 700 }
-  capHeightRatio: null
-  emphasisScale: null
-  color: "#FFFFFF"
-  stroke: { color: "#000000", px1080: 6 }
-  shadow: false
-  plate: box
-  position: { cx: 0.5, cy: null, align: center }
-  linesMax: 2
-  charsPerCard: { min: 4, max: 16 }
-  motionIn: cut
-  motionOut: cut
-  show: onset
-  hide: phrase-end
-  lastCard: hold-to-end
+  - id: c1
+    role: subtitle
+    beats: []
+    unit: phrase
+    writingMode: horizontal
+    font: { class: bold-gothic, weight: 700 }
+    capHeightRatio: null
+    emphasis: null
+    color: "#FFFFFF"
+    stroke: { color: "#000000", px1080: 6 }
+    shadow: false
+    plate: box
+    position: { cx: 0.5, cy: null, align: center }
+    linesMax: 2
+    charsPerCard: { min: 4, max: 16 }
+    motionIn: cut
+    motionOut: cut
+    show: onset
+    leadSec: null
+    hide: phrase-end
+    minHoldSec: null
+    lastCard: hold-to-end
 camera:
-  move: mixed
+  moves:
+    - { beat: b1, move: static }
+    - { beat: b2, move: push-in }
   zooms: []
   transitions: []
 audio:
-  bgm: { present: true, character: 控えめなピアノ, entersAtSec: 0, duckUnderVoice: true }
+  bgm: { present: true, character: 控えめなピアノ, entersAt: { beat: b1, offsetSec: 0 }, duckUnderVoice: true, levelDbUnderVoice: null }
   sfx: []
   voice: tts-voiceover
   referenceAudioUsed: false
@@ -69,7 +74,7 @@ routes:
     needs: [image-gen, tts]
     paidApi: true
     talkingHead: false
-    costUsdPerVideo: { min: 0.1, max: 0.5, basis: 静止画を 5〜10 枚生成する }
+    costUsdPerVideo: { min: 0.1, max: 0.5, basis: 静止画を 5〜10 枚生成する, asOf: 2026-10-25 }
     status: design-only
 fonts:
   - { family: Noto Sans JP, license: OFL-1.1, source: "https://fonts.google.com/noto/specimen/Noto+Sans+JP" }
@@ -79,7 +84,7 @@ rights:
 evidence:
   measured: []
   inferred: [hook.type, beats]
-  unmeasured: [captions.capHeightRatio]
+  unmeasured: [captions.c1.capHeightRatio]
 ---
 
 # 画面録画と読み上げ

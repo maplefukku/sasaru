@@ -3,7 +3,7 @@ schema: sasaru-playbook/1
 id: hands-desk-broll
 name: 手元の机と字幕
 status: draft
-summary: 机の上の手元映像に見出しテロップを重ね、一日の記録を短く見せる。
+summary: 机の上の手元映像に字幕を重ね、一日の記録を短く見せる。
 tags: [study, routine]
 fitsContent:
   - 勉強記録
@@ -16,25 +16,24 @@ source:
 format:
   aspect: "9:16"
   fps: 30
-  durationSec: { min: 10, max: 20 }
-  hardCuts: 5
+  durationSec: { min: 10, max: 20, reference: 15 }
   onCamera: hands
   speech: none
 hook:
   type: pov
-  endsAtSec: 1.0
   firstFrameHasText: true
 beats:
   - { id: b1, role: hook, tIn: 0.0, tOut: 1.0, purpose: 見る人の立場を一句で決める, swap: 自分の立場の一句 }
   - { id: b2, role: item, tIn: 1.0, tOut: 15.0, purpose: 手元の作業を短く並べる, swap: 自分の手元映像 }
-captions:
-  role: none
+captions: []
 camera:
-  move: handheld
+  moves:
+    - { beat: b1, move: handheld }
   zooms: []
-  transitions: [{ atSec: 1.0, type: hard-cut }]
+  transitions:
+    - { at: { beat: b2, offsetSec: 0 }, type: hard-cut }
 audio:
-  bgm: { present: true, character: 明るいアコースティック, entersAtSec: 0, duckUnderVoice: null }
+  bgm: { present: true, character: 明るいアコースティック, entersAt: { beat: b1, offsetSec: 0 }, duckUnderVoice: null, levelDbUnderVoice: null }
   sfx: []
   voice: none
   referenceAudioUsed: false
@@ -53,7 +52,7 @@ routes:
     needs: [t2v]
     paidApi: true
     talkingHead: false
-    costUsdPerVideo: { min: 0.5, max: 2, basis: 5 秒のクリップを 3 本生成する }
+    costUsdPerVideo: { min: 0.5, max: 2, basis: 5 秒のクリップを 3 本生成する, asOf: 2026-10-25 }
     status: design-only
 fonts: []
 rights:

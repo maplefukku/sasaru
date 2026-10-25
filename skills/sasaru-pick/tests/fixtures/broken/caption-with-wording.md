@@ -3,7 +3,7 @@ schema: sasaru-playbook/1
 id: caption-with-wording
 name: 文言を書いてしまった型
 status: draft
-summary: captions に文言の欄を足したので、スキーマで止まる。
+summary: 字幕の層に文言の欄を足したので、スキーマで止まる。
 tags: [broken]
 fitsContent:
   - 勉強法のコツ
@@ -12,17 +12,17 @@ format:
   aspect: "9:16"
   fps: 30
   durationSec: { min: 7, max: 15 }
-  hardCuts: 0
   onCamera: none
   speech: none
-hook: { type: text-promise, endsAtSec: 1.0, firstFrameHasText: true }
+hook: { type: text-promise, firstFrameHasText: true }
 beats:
   - { id: b1, role: hook, tIn: 0.0, tOut: 1.0, purpose: 約束する, swap: 自分の一句 }
   - { id: b2, role: payoff, tIn: 1.0, tOut: 6.0, purpose: 回収する, swap: 自分の答え }
 captions:
-  role: none
-  text: 元のテロップ
-camera: { move: static, zooms: [], transitions: [] }
+  - id: c1
+    role: headline
+    text: 元のテロップ
+camera: { moves: [{ beat: b1, move: static }], zooms: [], transitions: [] }
 audio:
   bgm: { present: false }
   sfx: []

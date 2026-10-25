@@ -1,12 +1,14 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyyaml>=6", "jsonschema>=4.18"]
+# dependencies = ["pyyaml>=6,<7", "jsonschema>=4.18,<5"]
 # ///
-"""Run pick.py against the fixture playbooks. uv run skills/sasaru-pick/tests/test_pick.py"""
+"""Run pick.py against the fixture playbooks. uv run --script skills/sasaru-pick/tests/test_pick.py"""
 
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -18,13 +20,14 @@ LIB = HERE / "fixtures" / "playbooks"
 BROKEN = HERE / "fixtures" / "broken"
 
 
-def run(brief: dict | str, *libs: Path) -> tuple[int, dict]:
+def run(brief: dict | str, *libs: Path, env: dict | None = None, cwd: Path | None = None) -> tuple[int, dict]:
     with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False, encoding="utf-8") as f:
         f.write(brief if isinstance(brief, str) else json.dumps(brief, ensure_ascii=False))
     args = [sys.executable, str(PICK), "--brief", f.name]
     for lib in libs:
         args += ["--library", str(lib)]
-    proc = subprocess.run(args, check=False, capture_output=True, text=True)
+    full_env = {k: v for k, v in os.environ.items() if k != "SASARU_HOME"} | (env or {})
+    proc = subprocess.run(args, check=False, capture_output=True, text=True, env=full_env, cwd=cwd)
     Path(f.name).unlink()
     if proc.stderr:
         print(proc.stderr, file=sys.stderr)
@@ -93,17 +96,51 @@ def routine_with_own_footage():
 
 
 @case
-def talking_head_only_when_asked():
-    _, r = run({"content": {"kind": "一人語りの体験談"}, "assets": ["own-footage"], "allowTalkingHead": True, "allowFace": True}, LIB)
+def talking_reference_when_allowed():
+    _, r = run({"content": {"kind": "一人語りの体験談"}, "assets": ["own-footage"], "allowTalkingHead": True}, LIB)
     assert r["status"] == "picked" and r["pick"]["id"] == "talking-confession", r
     assert r["pick"]["route"]["id"] == "caption-over-footage"
+    assert any("参照は人がカメラに喋る型" in t for t in r["reasons"])
 
 
 @case
-def talking_head_type_blocked_by_default():
+def talking_reference_blocked_by_default():
     _, r = run({"content": {"kind": "一人語りの体験談"}, "assets": ["own-footage"]}, LIB)
     assert r["status"] == "no-fit", r
     assert "talking-confession" not in r["missing"][0]["options"]
+
+
+@case
+def named_talking_reference_after_ingest():
+    _, r = run({"playbook": "talking-confession", "assets": ["own-footage"]}, LIB)
+    assert r["status"] == "picked" and r["pick"]["id"] == "talking-confession", r
+    assert r["pick"]["route"]["id"] == "caption-over-footage" and r["pick"]["route"]["default"] is True
+
+
+@case
+def named_playbook_missing():
+    _, r = run({"playbook": "no-such-type"}, LIB)
+    assert r["status"] == "need-info" and r["missing"][0]["field"] == "playbook", r
+    assert "hands-desk-broll" in r["missing"][0]["options"]
+
+
+@case
+def talking_route_never_without_permission():
+    brief = {"playbook": "talking-confession", "assets": ["r2v", "tts"], "budgetUsd": 10}
+    _, r = run(brief, LIB)
+    assert r["status"] == "no-match", r
+    _, r = run(brief | {"allowTalkingHead": True}, LIB)
+    assert r["status"] == "picked" and r["pick"]["route"]["id"] == "r2v-talking", r
+    assert r["pick"]["route"]["costUsdPerVideo"]["asOf"] == "2026-10-25"
+    assert any("喋る人を出す" in t for t in r["reasons"])
+
+
+@case
+def sasaru_home_library():
+    with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as cwd:
+        shutil.copytree(LIB, Path(home) / "playbooks")
+        _, r = run({"content": {"kind": "勉強法のコツ"}}, env={"SASARU_HOME": home}, cwd=Path(cwd))
+    assert r["status"] == "picked" and r["pick"]["file"].startswith(home), r
 
 
 @case
@@ -147,7 +184,7 @@ def better_type_behind_unanswered_assets():
 @case
 def bad_brief():
     code, r = run("assets: [drone]\n", LIB)
-    assert code == 1 and r["status"] == "bad-brief", r
+    assert code == 2 and r["status"] == "bad-brief", r
 
 
 def main() -> int:

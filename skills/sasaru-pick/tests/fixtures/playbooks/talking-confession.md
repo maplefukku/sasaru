@@ -1,42 +1,42 @@
 ---
 schema: sasaru-playbook/1
 id: talking-confession
-name: カメラに向かう一人語り
+name: 一人語りを手元映像に置き換えた型
 status: measured
-summary: 人がカメラに向かって失敗談を語り、最後に一言で返す。
+summary: 参照は人がカメラに失敗談を語る。作るカットは手元映像に字幕と読み上げを載せる。
 tags: [talk, study]
 fitsContent:
   - 一人語りの体験談
   - 勉強法のコツ
 source:
-  kind: hand-written
-  platform: none
-  rightsTier: none
-  measuredFiles: 0
+  kind: ingested
+  platform: instagram-reels
+  rightsTier: A
+  ingestedAt: 2026-10-25
+  measuredFiles: 1
+  reference: { onCamera: face, speech: on-camera, hardCuts: 4 }
 format:
   aspect: "9:16"
   fps: 30
-  durationSec: { min: 10, max: 30 }
-  hardCuts: 4
-  onCamera: face
-  speech: on-camera
+  durationSec: { min: 10, max: 30, reference: 20 }
+  onCamera: hands
+  speech: voiceover
 hook:
   type: contradiction
-  endsAtSec: 1.5
   firstFrameHasText: true
 beats:
   - { id: b1, role: hook, tIn: 0.0, tOut: 1.5, purpose: 常識を否定して止める, swap: 自分の否定の一句 }
   - { id: b2, role: payoff, tIn: 1.5, tOut: 20.0, purpose: 体験で回収する, swap: 自分の体験 }
-captions:
-  role: none
+captions: []
 camera:
-  move: static
+  moves:
+    - { beat: b1, move: handheld }
   zooms: []
   transitions: []
 audio:
   bgm: { present: false }
   sfx: []
-  voice: on-camera
+  voice: own-voiceover
   referenceAudioUsed: false
 routes:
   - id: caption-over-footage
@@ -53,18 +53,18 @@ routes:
     needs: [r2v, tts]
     paidApi: true
     talkingHead: true
-    costUsdPerVideo: { min: 2, max: 6, basis: 参照から人物を生成し口を合わせる }
+    costUsdPerVideo: { min: 2, max: 6, basis: 参照の動きで人物を生成し口を合わせる, asOf: 2026-10-25 }
     status: design-only
 fonts: []
 rights:
-  makerSupplies: [自分の映像]
+  makerSupplies: [自分の手元映像, 自分の声]
   neverUse: [参照動画の映像、音、テロップの文言]
 evidence:
-  measured: []
+  measured: [source.reference.hardCuts]
   inferred: [hook.type]
   unmeasured: []
 ---
 
-# カメラに向かう一人語り
+# 一人語りを手元映像に置き換えた型
 
 sasaru-pick のテスト用。本文は省く。
