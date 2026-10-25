@@ -171,7 +171,8 @@ def card_html(card: dict, layer: dict, mode: str) -> str:
     em = layer["emphasis"]
     out_lines = []
     unit_i = 0
-    for line in card["lines"]:
+    scales = card.get("lineScales") or [1.0] * len(card["lines"])
+    for line, ls in zip(card["lines"], scales):
         nonblank = [r for r in line if r["t"].strip()]
         full = bool(nonblank) and all(r["em"] for r in nonblank)
         parts = []
@@ -198,7 +199,8 @@ def card_html(card: dict, layer: dict, mode: str) -> str:
                 parts.append(f'<span class="em" style="{style}">{body}</span>')
             else:
                 parts.append(body)
-        out_lines.append(f'<div class="ln">{"".join(parts) or "&nbsp;"}</div>')
+        size = f' style="font-size:{ls}em"' if ls != 1.0 else ""
+        out_lines.append(f'<div class="ln"{size}>{"".join(parts) or "&nbsp;"}</div>')
     card["_units"] = unit_i
     return "".join(out_lines)
 
@@ -290,8 +292,14 @@ def build_html(plan: dict, font_css: str, names: dict, hf: Path) -> str:
             tl.append(f'tl.fromTo("#zm",{{scale:{z["scaleFrom"]}}},{{scale:{z["scaleTo"]},duration:{js_num(z["durSec"])},'
                       f'ease:"{EASE[z["easing"]]}"}},{js_num(z["t"])});')
 
+    alt = plan["visuals"]["background"].get("groundAlt")
+    grounds = [plan["visuals"]["background"]["color"], alt] if alt else None
+    sudden_i = 0
     for tr in plan["camera"]["transitions"]:
         t, kind = tr["t"], tr["type"]
+        if grounds and kind in ("hard-cut", "zoom-cut", "match-cut", "whip", "glitch"):
+            sudden_i += 1
+            tl.append(f'tl.set("#paper",{{backgroundColor:"{grounds[sudden_i % 2]}"}},{js_num(t)});')
         if kind == "fade":
             tl.append(f'tl.fromTo("#flash",{{opacity:0}},{{opacity:1,duration:0.12,ease:"none"}},{js_num(max(0, t - 0.12))});')
             tl.append(f'tl.to("#flash",{{opacity:0,duration:0.12,ease:"none"}},{js_num(t)});')
@@ -391,19 +399,19 @@ def run(cmd: list[str], cwd: Path | None = None, timeout: int = 1800) -> subproc
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env={**os.environ, **ENV})
 
 
-def mix_audio(plan: dict, out_wav: Path) -> dict:
+def mix_audio(plan: dict, cut_dir: Path, out_wav: Path) -> dict:
     D = plan["format"]["durationSec"]
     a = plan["audio"]
     inputs, chains, labels = [], [], []
     if a.get("voice"):
-        inputs += ["-i", a["voice"]["file"]]
+        inputs += ["-i", str(cut_dir / a["voice"]["path"])]
         k = len(inputs) // 2 - 1
         chains.append(f"[{k}:a]aformat=sample_rates=48000:channel_layouts=stereo,loudnorm=I=-20:TP={LOUDNESS_TP},"
                       f"aresample=48000,apad,atrim=0:{D}[v]")
         labels.append("[v]")
     if a.get("bgm"):
         b = a["bgm"]
-        inputs += ["-i", b["file"]]
+        inputs += ["-i", str(cut_dir / b["path"])]
         k = len(inputs) // 2 - 1
         delay = int(round(b["startAt"] * 1000))
         level = ""
@@ -415,7 +423,7 @@ def mix_audio(plan: dict, out_wav: Path) -> dict:
                       f"afade=t=out:st={fade}:d={b.get('fadeOutSec', 0.4)}[b]")
         labels.append("[b]")
     for j, s in enumerate(a.get("sfx", [])):
-        inputs += ["-i", s["file"]]
+        inputs += ["-i", str(cut_dir / s["path"])]
         k = len(inputs) // 2 - 1
         delay = int(round(s["t"] * 1000))
         chains.append(f"[{k}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume={s['gainDb']}dB,"
@@ -506,7 +514,7 @@ def main() -> int:
         if r.returncode != 0 or not picture.exists():
             raise Refused(f"hyperframes render failed: {(r.stderr or r.stdout)[-1500:]}")
         mix = cut_dir / "mix.wav"
-        mix_rec = mix_audio(plan, mix)
+        mix_rec = mix_audio(plan, cut_dir, mix)
         final = cut_dir / "cut.mp4"
         D = plan["format"]["durationSec"]
         m = run(["ffmpeg", "-y", "-v", "error", "-i", str(picture), "-i", str(mix), "-map", "0:v:0", "-map", "1:a:0",
@@ -520,9 +528,7 @@ def main() -> int:
             "picture": {"path": str(picture), "sha256": sha256(picture)},
             "mix": {"path": str(mix), "sha256": sha256(mix), **{k: v for k, v in mix_rec.items() if k != "command"}},
             "output": {"path": str(final), "sha256": sha256(final), "probe": probe(final)},
-            "soundSources": ([plan["audio"]["voice"]["file"]] if plan["audio"].get("voice") else [])
-                            + ([plan["audio"]["bgm"]["file"]] if plan["audio"].get("bgm") else [])
-                            + sorted({s["file"] for s in plan["audio"]["sfx"]}),
+            "soundSources": sorted({s["path"] for s in plan["audio"]["sources"]}),
         })
         plan["render"] = record
         for s in plan["steps"]:

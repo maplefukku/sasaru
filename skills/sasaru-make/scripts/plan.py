@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import unicodedata
@@ -30,9 +31,11 @@ SKILL_DIR = Path(__file__).resolve().parent.parent
 PLUGIN_DIR = SKILL_DIR.parent.parent
 SCHEMA = PLUGIN_DIR / "schema" / "playbook.schema.json"
 ADAPTERS = SKILL_DIR / "adapters"
+GATE = PLUGIN_DIR / "skills" / "sasaru-gate" / "scripts" / "check_cut.py"
 
 GENERATIVE_NEEDS = ["image-gen", "t2v", "i2v", "v2v", "tts"]
 FOOTAGE_NEEDS = ["own-footage", "screen-capture", "stock-footage"]
+SUDDEN = {"hard-cut", "zoom-cut", "match-cut", "whip", "glitch"}
 RENDERABLE_CONTAINERS = {"hyperframes", "html-canvas"}
 SOUND_LICENSES = {"CC0-1.0", "CC-BY-4.0", "own-work"}
 CREDIT_LICENSES = {"CC-BY-4.0"}
@@ -46,6 +49,8 @@ ROLE_DEFAULT_CY = {"headline": 0.42, "subtitle": 0.66, "label": 0.2, "counter": 
 # White-core height of one line per font-size em. Noto Sans JP 900 measured 0.94 on kanji lines and 0.87 on kana
 # lines (white > 220, row profile); other faces differ, so the gate measures the render.
 CAP_PER_EM = 0.92
+# A line with no CJK glyph only reaches cap height: 0.74 em measured on a Latin word in Noto Sans JP 700.
+LATIN_CAP_PER_EM = 0.74
 LINE_HEIGHT = 1.2
 DEFAULT_MIN_HOLD = 1.0
 EMPHASIS = re.compile(r"\[\[(.+?)\]\]")
@@ -141,6 +146,13 @@ def char_width(ch: str) -> float:
     return 1.0 if unicodedata.east_asian_width(ch) in ("W", "F", "A") else 0.6
 
 
+def line_scale(line: list[dict]) -> float:
+    chars = [ch for r in line for ch in r["t"] if not ch.isspace()]
+    if chars and all(char_width(ch) < 1.0 for ch in chars):
+        return round(CAP_PER_EM / LATIN_CAP_PER_EM, 4)
+    return 1.0
+
+
 def parse_card(text: str) -> list[list[dict]]:
     lines = []
     for raw in str(text).split("\n"):
@@ -186,6 +198,18 @@ class Plan:
         for k in ("license", "source", "author", "credit"):
             if rec.get(k):
                 out[k] = rec[k]
+        return out
+
+    def sound_record(self, rec: dict, what: str) -> dict:
+        """Copy a licensed sound file into the cut folder, where the gate reads every audio source."""
+        out = self.file_record(rec, what)
+        src = Path(out.pop("file"))
+        dest = self.cut_dir / "audio" / f"{out['sha256'][:8]}-{src.name}"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if not dest.exists():
+            shutil.copyfile(src, dest)
+        out["path"] = str(dest.relative_to(self.cut_dir))
+        out["sourceFile"] = str(src)
         return out
 
     def route(self) -> dict:
@@ -234,22 +258,22 @@ class Plan:
             cap, cap_src = L["capHeightRatio"], "playbook"
             if role == "headline" and (cap is None or cap < HEADLINE_FLOOR):
                 self.deviations.append({
-                    "field": f"captions.{lid}.capHeightRatio", "from": cap, "to": HEADLINE_BASE,
-                    "why": "headline below 0.04 or unmeasured; raised to the headline band (sasaru-principle-captions-read-as-headlines)",
+                    "path": f"captions.{lid}.capHeightRatio", "from": cap, "to": HEADLINE_BASE,
+                    "reason": "headline below 0.04 or unmeasured; raised to the headline band (sasaru-principle-captions-read-as-headlines)",
                 })
                 cap, cap_src = HEADLINE_BASE, "raised"
             elif cap is None:
                 cap, cap_src = ROLE_DEFAULT_CAP[role], "default"
-                self.deviations.append({"field": f"captions.{lid}.capHeightRatio", "from": None, "to": cap,
-                                        "why": f"unmeasured; make's default for role {role}"})
+                self.deviations.append({"path": f"captions.{lid}.capHeightRatio", "from": None, "to": cap,
+                                        "reason": f"unmeasured; make's default for role {role}"})
             pos = dict(L["position"])
             if pos["cx"] is None:
                 pos["cx"] = 0.5
-                self.deviations.append({"field": f"captions.{lid}.position.cx", "from": None, "to": 0.5, "why": "unmeasured; centered"})
+                self.deviations.append({"path": f"captions.{lid}.position.cx", "from": None, "to": 0.5, "reason": "unmeasured; centered"})
             if pos["cy"] is None:
                 pos["cy"] = ROLE_DEFAULT_CY[role]
-                self.deviations.append({"field": f"captions.{lid}.position.cy", "from": None, "to": pos["cy"],
-                                        "why": f"unmeasured; make's default for role {role}"})
+                self.deviations.append({"path": f"captions.{lid}.position.cy", "from": None, "to": pos["cy"],
+                                        "reason": f"unmeasured; make's default for role {role}"})
             em = L["emphasis"]
             em_out = None
             if em:
@@ -364,9 +388,9 @@ class Plan:
             for c in first:
                 if c["start"] == 0:
                     c["forceCutIn"] = True
-                    self.deviations.append({"field": f"cards.{c['layer']}.{c['beat']}.{c['index']}.motionIn",
+                    self.deviations.append({"path": f"cards.{c['layer']}.{c['beat']}.{c['index']}.motionIn",
                                             "from": next(L for L in layers if L["id"] == c["layer"])["motionIn"],
-                                            "to": "cut", "why": "hook.firstFrameHasText: the first frame shows the card in full"})
+                                            "to": "cut", "reason": "hook.firstFrameHasText: the first frame shows the card in full"})
         last_end = max((c["end"] for c in cards), default=0)
         if cards and last_end < self.dur:
             self.warnings.append(f"no card is on screen at the last frame ({last_end}s < {self.dur}s)")
@@ -398,15 +422,16 @@ class Plan:
                 if L["emphasis"] and scale != 1.0 and kinds == {True, False}:
                     c.setdefault("mixedLines", True)
             if c.get("mixedLines"):
-                self.deviations.append({"field": f"cards.{L['id']}.{c['beat']}.{c['index']}.emphasis.scale",
+                self.deviations.append({"path": f"cards.{L['id']}.{c['beat']}.{c['index']}.emphasis.scale",
                                         "from": scale, "to": 1.0,
-                                        "why": "one line would mix sizes; emphasis keeps its color only on mixed lines"})
+                                        "reason": "one line would mix sizes; emphasis keeps its color only on mixed lines"})
             if any(r["em"] for line in c["lines"] for r in line) and not L["emphasis"]:
                 self.warnings.append(f"{tag} marks emphasis but layer {L['id']} has none; shown plain")
             width = 0.0
-            for line in c["lines"]:
+            c["lineScales"] = [line_scale(line) for line in c["lines"]]
+            for line, ls in zip(c["lines"], c["lineScales"]):
                 full = all(r["em"] for r in line if r["t"].strip()) and any(r["t"].strip() for r in line)
-                s = scale if (L["emphasis"] and full) else 1.0
+                s = (scale if (L["emphasis"] and full) else 1.0) * ls
                 lw = sum(char_width(ch) for r in line for ch in r["t"]) * L["fontPx"] * s
                 lw += 2 * (L["stroke"]["px"] if L["stroke"] else 0)
                 width = max(width, lw)
@@ -414,8 +439,8 @@ class Plan:
             c["fitScale"] = round(fit, 4)
             if fit < 1.0:
                 eff = L["capHeightRatio"] * fit
-                self.deviations.append({"field": f"cards.{L['id']}.{c['beat']}.{c['index']}.size", "from": 1.0,
-                                        "to": round(fit, 3), "why": "card wider than the safe area; scaled to fit"})
+                self.deviations.append({"path": f"cards.{L['id']}.{c['beat']}.{c['index']}.size", "from": 1.0,
+                                        "to": round(fit, 3), "reason": "card wider than the safe area; scaled to fit"})
                 if L["role"] == "headline" and eff < HEADLINE_FLOOR:
                     self.warnings.append(f"{tag} had to shrink to cap height {eff:.3f}, under the headline floor 0.04; split the card")
 
@@ -439,7 +464,7 @@ class Plan:
         bgm = ca.get("bgm")
         if pa["bgm"]["present"]:
             if bgm:
-                rec = self.file_record(bgm, "audio.bgm")
+                rec = self.sound_record(bgm, "audio.bgm")
                 self.check_sound_license(rec, "bgm")
                 enters = pa["bgm"].get("entersAt")
                 rec["startAt"] = self.at(enters) if enters else 0.0
@@ -453,42 +478,46 @@ class Plan:
             self.warnings.append("the playbook has no BGM; audio.bgm is ignored")
         files = {s["type"]: s for s in (ca.get("sfx") or [])}
         for s in pa["sfx"]:
+            cue = s.get("cue") or s.get("on")
             src = files.get(s["type"])
             if not src:
                 self.steps.append({"id": f"sfx-{s['type']}", "status": "要決定",
-                                   "what": f"no file for sfx type {s['type']} (on {s['on']}); give audio.sfx[{{type: {s['type']}}}]"})
+                                   "what": f"no file for sfx type {s['type']} (cue {cue}); give audio.sfx[{{type: {s['type']}}}]"})
                 continue
-            rec = self.file_record(src, f"audio.sfx {s['type']}")
+            rec = self.sound_record(src, f"audio.sfx {s['type']}")
             self.check_sound_license(rec, f"sfx {s['type']}")
             if "at" in s:
                 times = [self.at(s["at"])]
-            elif s["on"] == "card-in":
+            elif cue == "card-in":
                 first = layers[0]["id"] if layers else None
                 times = [c["start"] for c in cards if c["layer"] == first]
-            elif s["on"] == "cut":
+            elif cue == "cut":
                 times = [b["tIn"] for b in self.beats[1:]]
-            elif s["on"] == "zoom":
+            elif cue == "zoom":
                 times = [z["t"] for z in camera["zooms"]]
-            elif s["on"] == "payoff":
+            elif cue == "payoff":
                 times = [b["tIn"] for b in self.beats if b["role"] == "payoff"]
-            elif s["on"] == "beat-drop" and out["bgm"]:
+            elif cue == "beat-drop" and out["bgm"]:
                 times = [out["bgm"]["startAt"]]
             else:
                 times = []
-                self.warnings.append(f"sfx {s['type']} on {s['on']} has no time; give at in the playbook")
+                self.warnings.append(f"sfx {s['type']} cue {cue} has no time; give at in the playbook")
             gain = float(src.get("gainDb", -6))
             for t in times:
-                out["sfx"].append({**rec, "type": s["type"], "on": s["on"], "t": t, "gainDb": gain})
+                out["sfx"].append({**rec, "type": s["type"], "cue": cue, "t": t, "gainDb": gain})
         voice_kind = pa["voice"]
         if self.pb["format"]["speech"] == "voiceover" or voice_kind != "none":
             v = ca.get("voice")
             if voice_kind == "own-voiceover":
                 if v and v.get("file"):
-                    rec = self.file_record(v, "audio.voice")
+                    rec = self.sound_record(v, "audio.voice")
                     rec["license"] = rec.get("license", "own-work")
                     out["voice"] = rec
                 else:
                     self.steps.append({"id": "voice", "status": "要決定", "what": "own voiceover: give audio.voice.file"})
+            elif voice_kind == "tts-voiceover" and isinstance(v, dict) and v.get("file"):
+                out["voice"] = self.sound_record(v, "audio.voice")
+                self.check_sound_license(out["voice"], "voice")
             elif voice_kind == "tts-voiceover":
                 text = (v or {}).get("text") or "\n".join(c["text"] for c in cards if c["layer"] == (layers[0]["id"] if layers else ""))
                 self.adapter_step("tts", {"text": text, "durationSec": self.dur}, beat=None)
@@ -500,6 +529,17 @@ class Plan:
                                        "what": "BGM level under the voice is unmeasured; give audio.bgm.levelDbUnderVoice (no default)"})
                 else:
                     out["bgm"]["levelDbUnderVoice"] = level
+        sources = []
+        if out["voice"]:
+            sources.append({"role": "voice", "path": out["voice"]["path"], "license": out["voice"].get("license"),
+                            "atSec": 0.0, "inSec": 0.0})
+        if out["bgm"]:
+            b = out["bgm"]
+            sources.append({"role": "bgm", "path": b["path"], "license": b.get("license"),
+                            "atSec": b["startAt"], "inSec": b["offsetSec"]})
+        for s in out["sfx"]:
+            sources.append({"role": "sfx", "path": s["path"], "license": s.get("license"), "atSec": s["t"], "inSec": 0.0})
+        out["sources"] = sources
         return out
 
     def check_sound_license(self, rec: dict, what: str) -> None:
@@ -579,8 +619,14 @@ class Plan:
             self.adapter_step("tts", {"text": v.get("text") if isinstance(v, dict) else None,
                                       "durationSec": self.dur}, beat=None)
         brand = self.c.get("brand") or {}
+        sudden = [t for t in self.pb["camera"]["transitions"] if t["type"] in SUDDEN]
+        if sudden and not brand.get("groundAlt"):
+            covered = {f["beat"] for f in footage}
+            bare = [t["at"]["beat"] for t in sudden if t["at"]["beat"] not in covered]
+            if bare:
+                self.warnings.append(f"transitions into {bare} change nothing on a plain background; give brand.groundAlt")
         return {"background": {"color": brand.get("ground", "#111111"), "pattern": brand.get("pattern", "plain"),
-                               "patternColor": brand.get("patternColor")},
+                               "patternColor": brand.get("patternColor"), "groundAlt": brand.get("groundAlt")},
                 "footage": footage}
 
     def build(self) -> dict:
@@ -603,23 +649,40 @@ class Plan:
                                        "render_code_motion.py renders hyperframes and html-canvas"})
         else:
             if route["container"] == "html-canvas":
-                self.deviations.append({"field": "routes.container", "from": "html-canvas", "to": "hyperframes",
-                                        "why": "HTML is rendered through HyperFrames, sasaru-make's default container"})
+                self.deviations.append({"path": "routes.container", "from": "html-canvas", "to": "hyperframes",
+                                        "reason": "HTML is rendered through HyperFrames, sasaru-make's default container"})
             blocked = [s["id"] for s in self.steps if s["status"] in ("要決定", "未実装") and s["id"] in FOOTAGE_NEEDS]
             self.steps.append({"id": "compose", "status": "blocked" if blocked else "todo",
                                "what": "render the picture with HyperFrames, mix sound with ffmpeg",
                                "command": f"uv run --script {SKILL_DIR / 'scripts' / 'render_code_motion.py'} {self.cut_dir}"})
         self.steps.append({"id": "gate", "status": "todo", "what": "cut check by sasaru-gate (check_cut.py)",
-                           "command": f"uv run --script {PLUGIN_DIR / 'scripts' / 'check_cut.py'} {self.cut_dir}"})
+                           "command": f"uv run --script {GATE} {self.cut_dir} --fetch-models --out {self.cut_dir / 'gate.json'}"})
         fmt = self.pb["format"]
+        for c in cards:
+            c["emphasis"] = any(r["em"] for line in c["lines"] for r in line)
+        caption_style = {}
+        for L in layers:
+            st = {"fontFamily": L["font"]["family"], "fontClass": L["font"]["class"], "weight": L["font"]["weight"],
+                  "shadow": L["shadow"], "plate": L["plate"], "color": L["color"]}
+            caption_style[L["id"]] = st
+        explicit = bool(self.args.route or self.c.get("route"))
         return {
             "schema": "sasaru-cut/1",
             "cutId": self.cut_id,
             "plannedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "playbook": {"id": self.pb["id"], "path": str(self.pb_path), "sha256": sha256(self.pb_path),
-                         "status": self.pb["status"]},
+            "playbook": self.pb["id"],
+            "playbookPath": os.path.relpath(self.pb_path, self.cut_dir),
+            "playbookSha256": sha256(self.pb_path),
+            "playbookStatus": self.pb["status"],
             "content": {"path": str(self.c_path), "sha256": sha256(self.c_path)},
-            "route": {k: route[k] for k in ("id", "container", "needs", "paidApi", "talkingHead", "status")},
+            "video": "cut.mp4",
+            "route": route["id"],
+            "routeRequestedByMaker": explicit and not route["default"],
+            "container": route["container"],
+            "routeInfo": {k: route[k] for k in ("needs", "paidApi", "talkingHead", "status")},
+            "stretch": round(self.ratio, 4),
+            "costUsd": 0,
+            "captionStyle": caption_style,
             "format": {"aspect": fmt["aspect"], "fps": fmt["fps"], "width": self.w, "height": self.h,
                        "durationSec": self.dur, "band": fmt["durationSec"], "referenceSec": self.ref,
                        "stretch": round(self.ratio, 4), "safeArea": self.safe(),
@@ -668,7 +731,7 @@ def main() -> int:
     out.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     summary = {
         "cutJson": str(out),
-        "route": plan["route"]["id"],
+        "route": plan["route"],
         "durationSec": plan["format"]["durationSec"],
         "stretch": plan["format"]["stretch"],
         "cards": len(plan["cards"]),

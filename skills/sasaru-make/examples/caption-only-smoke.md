@@ -58,7 +58,7 @@ captions:
     font: { class: extra-bold-gothic, weight: 700 }
     capHeightRatio: 0.026
     emphasis: null
-    color: "#111111"
+    color: "#9EE6FF"
     stroke: null
     shadow: false
     plate: pill
@@ -80,7 +80,6 @@ camera:
   zooms:
     - { at: { beat: b3, offsetSec: 0 }, scaleFrom: 1.0, scaleTo: 1.08, durSec: 0.25, easing: ease-out }
   transitions:
-    - { at: { beat: b2, offsetSec: 0 }, type: hard-cut }
     - { at: { beat: b3, offsetSec: 0 }, type: zoom-cut }
 audio:
   bgm:
@@ -147,11 +146,11 @@ sasaru-make の確かめ用に手で書いた型である。参照動画は無�
 ## テロップ
 
 - c1（headline）: 極太ゴシック 900、白、黒の縁 9 px（1080 幅）、影あり。中心 (0.46, 0.42)、二段まで、一枚 2〜12 字。強調は 1.3 倍の黄色で、強調だけの段に使う。一つの段に大小を混ぜない。0.1 秒先に出し、次の一枚まで残し、最後の一枚は絵の終わりまで残す。最短 1.0 秒。白い芯の高さは未計測で、make が見出しの帯（0.057）に上げる。
-- c2（label）: b3 だけ。太さ 700、黒字に白い丸座布団、中心 (0.46, 0.60)、一段、拍の頭で出て拍の終わりまで残る。
+- c2（label）: b3 だけ。太さ 700、水色の字に黒い半透明の丸座布団、中心 (0.46, 0.60)、一段、拍の頭で出て拍の終わりまで残る。見出しの白と強調の黄とは別の色にして、層を色で見分けられるようにする。
 
 ## カメラとトランジションとズーム
 
-b2 で背景がゆっくり寄る。b3 の頭で 1.0 から 1.08 へ 0.25 秒の寄り（ease-out）と、ズームカット。b2 の頭はハードカット扱いで、見た目の変化は字の入れ替わりだけ。
+b2 で背景がゆっくり寄る。b3 の頭で 1.0 から 1.08 へ 0.25 秒の寄り（ease-out）と、ズームカット。ズームカットでは地の色が切り替わる。b2 の頭にカットは無く、見た目の変化は字の入れ替わりだけ。
 
 ## BGM と効果音
 

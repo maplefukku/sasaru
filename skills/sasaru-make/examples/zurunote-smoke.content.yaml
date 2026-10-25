@@ -10,11 +10,12 @@ brand:
   pattern: ruled
   patternColor: "#1E3150"
   accent: "#FFD84D"
+  groundAlt: "#2F6BFF"
 beats:
   b1:
     c1: ["講義、\n録音して", "[[そのまま？]]"]
   b2:
-    c1: ["録音を\nZuruNoteへ", "ノートと問題が\n[[勝手にできる]]"]
+    c1: ["録音を\n入れるだけで", "ノートと問題\n[[自動で完成]]"]
   b3:
     c1: ["あとは\n[[解くだけ。]]"]
     c2: ["ZuruNote"]
