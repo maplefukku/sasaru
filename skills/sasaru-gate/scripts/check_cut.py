@@ -417,6 +417,8 @@ def main():
     ap.add_argument("--roi", help="Y0:Y1 band (0..1) to search for captions")
     ap.add_argument("--fetch-models", action="store_true", help="download the free YuNet face detector into $SASARU_CACHE")
     ap.add_argument("--lines", default=str(DEFAULT_LINES))
+    ap.add_argument("--schema", help="default: the plugin's schema/playbook.schema.json")
+    ap.add_argument("--template", help="default: the plugin's templates/playbook.md")
     ap.add_argument("--out")
     a = ap.parse_args()
 
@@ -450,7 +452,10 @@ def main():
     rep = Report(fm)
     tol_t = m["minHoleSec"]
 
-    errs, warns, _ = validate(fm, body, pb_path, full_text=text)
+    try:
+        errs, warns, _ = validate(fm, body, pb_path, a.schema, a.template, full_text=text)
+    except (OSError, ValueError) as e:
+        bad(str(e))
     rep.add("playbook.valid", "pass" if not errs else "fail", {"errors": errs, "warnings": warns}, method="validate_playbook",
             note="the wording check runs in validate_playbook.py with --work")
 

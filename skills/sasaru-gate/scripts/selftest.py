@@ -39,7 +39,8 @@ def playbook_text():
     c = fm["captions"][0]
     c.update({"capHeightRatio": round(CAP_H / H, 4), "position": {"cx": 0.5, "cy": CY, "align": "center"}, "shadow": False,
               "minHoldSec": 1.0, "charsPerCard": {"min": 2, "max": 10}})
-    fm["audio"]["bgm"].pop("levelDbUnderVoice", None)
+    for key in ("levelDbUnderVoice", "duckUnderVoice"):
+        fm["audio"]["bgm"].pop(key, None)
     fm["audio"]["voice"] = "tts-voiceover"
     fm["evidence"] = {"measured": [], "inferred": ["hook.type", "beats", "format.safeArea", "captions.c1.capHeightRatio",
                                                    "captions.c1.position.cy", "captions.c1.minHoldSec"], "unmeasured": []}

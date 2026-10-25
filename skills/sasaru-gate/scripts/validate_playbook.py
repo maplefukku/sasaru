@@ -18,21 +18,36 @@ from pathlib import Path
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
-ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_SCHEMA = ROOT / "schema" / "playbook.schema.json"
-DEFAULT_TEMPLATE = ROOT / "templates" / "playbook.md"
 FALLBACK_HEADINGS = [
     "構成と尺", "フック", "ビート", "テロップ", "カメラとトランジションとズーム", "BGM と効果音", "なぜ伸びるか",
     "差し替える場所", "制作ルート", "編集の器とフォント", "素材の権利", "費用の目安", "測ったことと推論",
 ]
-# The schema says null is "not measured" for these. Elsewhere null may also mean "none".
-NULL_IS_UNMEASURED = ("capHeightRatio", "minHoldSec", "levelDbUnderVoice")
-LAYER_NULLABLE = ("capHeightRatio", "minHoldSec", "position.cx", "position.cy", "leadSec")
 CJK_RUN = 6
 LATIN_WORDS = 3
 CJK = r"\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f"
 PLATFORM_URL = re.compile(r"https?://(www\.)?(instagram\.com|tiktok\.com|youtube\.com|youtu\.be)/", re.I)
-HANDLE = re.compile(r"(?<![\w.])@[A-Za-z0-9_.]{3,}")
+HANDLE = re.compile(r"(?<![\w.])@([A-Za-z0-9_.-]{3,})")
+CSS_AT_RULES = {
+    "charset", "container", "counter-style", "document", "font-face", "font-feature-values", "font-palette-values", "import",
+    "keyframes", "layer", "media", "namespace", "page", "property", "scope", "starting-style", "supports", "viewport",
+    "tailwind", "apply", "use", "forward", "mixin", "include", "extend",
+}
+CODE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]+`", re.S)
+
+
+def repo_file(*parts):
+    """A file in the plugin tree, found only when this script sits at skills/sasaru-gate/scripts/."""
+    here = Path(__file__).resolve()
+    if len(here.parents) <= 3:
+        return None
+    p = here.parents[3].joinpath(*parts)
+    return p if p.is_file() else None
+
+
+def handles(text):
+    """@handles outside code, minus CSS and Sass at-rules such as @font-face."""
+    found = HANDLE.findall(CODE.sub(" ", text))
+    return [h for h in found if h.lower().rstrip(".") not in CSS_AT_RULES and not h.lower().startswith("-webkit-")]
 
 
 def dates_to_str(obj):
@@ -95,6 +110,8 @@ def headings(body, level):
 
 
 def template_headings(template):
+    if template is None:
+        return FALLBACK_HEADINGS
     try:
         return headings(load_playbook(template)[1], 2) or FALLBACK_HEADINGS
     except (OSError, ValueError):
@@ -164,9 +181,47 @@ def find_source_text(playbook_path, work, pid):
     return next((c for c in cands if c.is_file()), None)
 
 
-def validate(fm, body, path=None, schema_path=DEFAULT_SCHEMA, template_path=DEFAULT_TEMPLATE, work=None, full_text=None):
+def resolve(node, schema):
+    while isinstance(node, dict) and "$ref" in node:
+        node = schema["$defs"][node["$ref"].split("/")[-1]]
+    return node if isinstance(node, dict) else {}
+
+
+def null_meaning(node):
+    d = (node.get("description") or "").lower()
+    if "null: unmeasured" in d:
+        return "unmeasured"
+    if "null: not applicable" in d:
+        return "not-applicable"
+    return None
+
+
+def nulls(obj, schema, node=None, path=""):
+    """Every null in the frontmatter with the meaning its schema description gives ("null: unmeasured" or "null: not applicable")."""
+    node = resolve(schema if node is None else node, schema)
+    if isinstance(obj, dict):
+        props = node.get("properties") or {}
+        for k, v in obj.items():
+            child = props.get(k, {})
+            p = f"{path}.{k}" if path else k
+            if v is None:
+                yield p, null_meaning(resolve(child, schema)) or null_meaning(child)
+            else:
+                yield from nulls(v, schema, child, p)
+    elif isinstance(obj, list):
+        items = node.get("items") or {}
+        for i, v in enumerate(obj):
+            step = f".{v['id']}" if isinstance(v, dict) and isinstance(v.get("id"), str) else f"[{i}]"
+            yield from nulls(v, schema, items, path + step)
+
+
+def validate(fm, body, path=None, schema_path=None, template_path=None, work=None, full_text=None):
     """Return (errors, warnings, wording) where wording reports the source-text check."""
     errors, warnings = [], []
+    schema_path = schema_path or repo_file("schema", "playbook.schema.json")
+    if schema_path is None:
+        raise FileNotFoundError("schema/playbook.schema.json not found next to the plugin; pass --schema")
+    template_path = template_path or repo_file("templates", "playbook.md")
     schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
     for e in sorted(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(fm), key=lambda e: list(e.absolute_path)):
         where = ".".join(str(p) for p in e.absolute_path) or "(root)"
@@ -252,18 +307,14 @@ def validate(fm, body, path=None, schema_path=DEFAULT_SCHEMA, template_path=DEFA
         cpc = c.get("charsPerCard") or {}
         if isinstance(cpc.get("min"), int) and isinstance(cpc.get("max"), int) and cpc["min"] > cpc["max"]:
             errors.append(f"captions.{lid}.charsPerCard.min is above max")
-        if c.get("show") == "before-onset" and c.get("leadSec") is None and not covered(groups["unmeasured"], f"captions.{lid}.leadSec"):
-            errors.append(f"captions.{lid}: show before-onset needs leadSec, or leadSec listed as unmeasured")
-        for field in LAYER_NULLABLE:
-            p = f"captions.{lid}.{field}"
-            if has_path(fm, p) and get_path(fm, p) is None and not covered(groups["unmeasured"], p):
-                if field in NULL_IS_UNMEASURED:
-                    errors.append(f"'{p}' is null but not listed in evidence.unmeasured")
-                elif field != "leadSec":
-                    warnings.append(f"'{p}' is null and not in evidence.unmeasured; the cut check reads it as 'no target'")
-    lvl = (aud.get("bgm") or {}).get("levelDbUnderVoice", "absent")
-    if lvl is None and not covered(groups["unmeasured"], "audio.bgm.levelDbUnderVoice"):
-        warnings.append("'audio.bgm.levelDbUnderVoice' is null but not listed in evidence.unmeasured")
+    for p, meaning in nulls(fm, schema):
+        listed = covered(groups["unmeasured"], p)
+        if meaning == "unmeasured" and not listed:
+            errors.append(f"'{p}' is null (unmeasured) but not listed in evidence.unmeasured")
+        elif meaning == "not-applicable" and p in groups["unmeasured"]:
+            warnings.append(f"'{p}' is null, which means not applicable here, yet it is listed in evidence.unmeasured")
+        elif meaning is None:
+            warnings.append(f"'{p}' is null but the schema does not say what null means for it")
 
     seen = {}
     for g, paths in groups.items():
@@ -285,8 +336,9 @@ def validate(fm, body, path=None, schema_path=DEFAULT_SCHEMA, template_path=DEFA
     text = full_text if full_text is not None else body
     if PLATFORM_URL.search(text):
         warnings.append("the file links to a short-video platform page; a playbook must not name the source work")
-    if HANDLE.search(text):
-        warnings.append("the file contains an @handle; a playbook must not name the creator")
+    found = handles(text)
+    if found:
+        warnings.append(f"the file contains @handles outside code ({', '.join('@' + h for h in found[:3])}); a playbook must not name the creator")
 
     if src.get("kind") == "ingested":
         st_path = find_source_text(path, work, fm.get("id"))
@@ -314,16 +366,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("playbook")
     ap.add_argument("--work")
-    ap.add_argument("--schema", default=str(DEFAULT_SCHEMA))
-    ap.add_argument("--template", default=str(DEFAULT_TEMPLATE))
+    ap.add_argument("--schema", help="default: schema/playbook.schema.json of the plugin this script sits in")
+    ap.add_argument("--template", help="default: templates/playbook.md of the plugin; without one the built-in heading list is used")
     a = ap.parse_args()
     try:
         text = Path(a.playbook).read_text(encoding="utf-8")
         fm, body = split_playbook(text)
+        errors, warnings, wording = validate(fm, body, a.playbook, a.schema, a.template, a.work, full_text=text)
     except (OSError, ValueError, yaml.YAMLError) as e:
         print(json.dumps({"file": a.playbook, "ok": False, "errors": [f"unreadable: {e}"]}, ensure_ascii=False))
         sys.exit(2)
-    errors, warnings, wording = validate(fm, body, a.playbook, a.schema, a.template, a.work, full_text=text)
     print(json.dumps({"file": Path(a.playbook).name, "ok": not errors, "errors": errors, "warnings": warnings, "wording": wording},
                      ensure_ascii=False, indent=1))
     sys.exit(0 if not errors else 3)

@@ -10,7 +10,7 @@ gate は測って報告するだけで、直さない。欄ごとに合格、不
 
 合否の線は playbook の欄から読む。ゲート全体で使う測り方の定義と許容幅は `lines.json` にあり、出典は同じファイルの `sources` に書いてある。一回だけ測った値を、そこに定数として足さない。許容幅を変えるのは、複数のファイルで測ったときだけで、理由を `sources` に書く。
 
-スクリプトはこのファイルから見て `scripts/` にある。どれも PEP 723 のヘッダーを持ち、`uv run --script` で動く。ネットワークに出るのは、無料の検出モデルを初回に取りに行くときだけで、有料の API は呼ばない。モデルは `$SASARU_CACHE`（既定は `~/.cache/sasaru`）に置く。終了コードは 0 が合格、2 が入力の誤り、3 が不合格か未計測あり。
+スクリプトはこのファイルから見て `scripts/` にある。スキーマとテンプレートは、プラグインのツリーの中にあるときだけ自動で見つける。スクリプトを外へ写したときは `--schema` と `--template` を渡す。どれも PEP 723 のヘッダーを持ち、`uv run --script` で動く。ネットワークに出るのは、無料の検出モデルを初回に取りに行くときだけで、有料の API は呼ばない。モデルは `$SASARU_CACHE`（既定は `~/.cache/sasaru`）に置く。終了コードは 0 が合格、2 が入力の誤り、3 が不合格か未計測あり。
 
 ## Start
 
@@ -31,7 +31,8 @@ uv run --script scripts/validate_playbook.py sasaru/playbooks/<id>.md --work sas
 - フロントマターがスキーマに合格する。YAML の日付（`ingestedAt`、`asOf`）は文字列に直してから検証する。
 - 本文の `##` 見出しがテンプレートと同じ順で全部ある。`## 制作ルート` の下の `###` が `routes` と同じ順。
 - `id` とファイル名が一致する。ビートが重ならない。`at.beat`、`camera.moves[].beat`、層の `beats` が実在するビートを指す。
-- `evidence` のパスが実在する（層は `captions.<層id>.<欄>`）。一つのパスを二つの組に入れない。`measured` の欄は null でない。null の `capHeightRatio`、`minHoldSec` は `unmeasured` に載っている。
+- `evidence` のパスが実在する（層は `captions.<層id>.<欄>`）。一つのパスを二つの組に入れない。`measured` の欄は null でない。null の意味はスキーマの各欄の説明から読む。`null: unmeasured` の欄は `unmeasured` に載っている。`null: not applicable` の欄は載せない。
+- `@handle` が無い。コードブロックとインラインコードの中、CSS と Sass の at-rule（`@font-face` など）は数えない。
 - 文言検査。`source-text.json` の文字列と playbook のファイル全体（フロントマターの自由文字列も）を突き合わせる。CJK は 6 文字、ラテン文字は 3 語が続けて一致したら不合格。`source.kind: ingested` で `source-text.json` が無ければ不合格。`--work` が無いときは `playbooks/../work/<id>/` を探す。
 
 ## Phase 2: カット検査
