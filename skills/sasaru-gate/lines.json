@@ -1,0 +1,52 @@
+{
+  "schema": "sasaru-gate-lines/1",
+  "measure": {
+    "envelopeWindowSec": 0.05,
+    "envelopeHopSec": 0.01,
+    "speechLineFracOfMax": 0.1,
+    "minHoleSec": 0.15,
+    "valleyDepthFrac": 0.5,
+    "bedFloorDbfs": -60,
+    "captionColorTol": 45,
+    "strokeColorTol": 60,
+    "strokeSearchPx1080": 8,
+    "plateMinFrac": 0.025,
+    "captionMinLinePxFrac": 0.0002,
+    "captionLineGapFrac": 0.004,
+    "detectScale": 0.5,
+    "hardCutHsvDelta": 27,
+    "sourceFitWindowSec": 0.5,
+    "referenceWindowSec": 2.0,
+    "faceStepSec": 0.5,
+    "faceScoreMin": 0.8
+  },
+  "tolerance": {
+    "fpsAbs": 0.01,
+    "aspectAbs": 0.01,
+    "capHeightRel": 0.1,
+    "emphasisRel": 0.1,
+    "positionAbs": 0.05,
+    "strokeRingFracMin": 0.5,
+    "levelDbAbs": 3.0,
+    "sourcesExplainedMin": 0.9,
+    "referenceCorrMax": 0.3
+  },
+  "lines": {
+    "headlineCapHeightFloor": 0.04,
+    "mouth": { "pearsonMin": 0.3, "absLagMaxMs": 100, "searchMs": 200, "openSpeechAbovePause": true }
+  },
+  "sources": {
+    "measure.speechLineFracOfMax": "Speech is RMS above 0.1 x the file's max RMS. Same definition as the katsu-04 cause note and the field lip-sync scorer.",
+    "measure.minHoleSec": "Shortest silence counted as a hole; the katsu-04 cause note listed holes from 0.15 s. Also the timing tolerance for caption show, hide, and the bed entry, since a shift shorter than a counted hole sits inside one breath.",
+    "measure.envelopeWindowSec": "Centered RMS window. Definition, not a pass line.",
+    "measure.valleyDepthFrac": "A dip inside one speech run counts as a phrase onset when it falls to this fraction of the smaller neighbouring peak. Definition, not calibrated.",
+    "measure.bedFloorDbfs": "A pause louder than this (RMS re full scale) carries a music bed. Definition, not calibrated.",
+    "measure.captionColorTol": "Max per-channel distance from the layer colour that counts as caption core. 45 makes white start at 210, the threshold of the katsu-05 export check; the katsu-04 note used 220.",
+    "measure.plateMinFrac": "Side of the square opening, as a fraction of frame height, that keeps a solid light block (a box or pill plate, a light ground) and drops glyph strokes. A 900-weight glyph stroke is about 0.16 em, under 0.025 for cards up to 0.08 cap height; a one-line plate at 0.03 cap height is about 0.05 tall. Definition, not calibrated.",
+    "measure.hardCutHsvDelta": "Mean HSV frame difference that counts as a hard cut. PySceneDetect ContentDetector default, also used by the field prep script.",
+    "measure.faceScoreMin": "YuNet detection score, as in the field face script.",
+    "tolerance": "Measurement tolerances, not calibrated on several cuts. Change one only with measurements from more than one file and write the reason here.",
+    "lines.headlineCapHeightFloor": "Principle leaf sasaru-principle-captions-read-as-headlines: a headline layer under 0.04 must be raised.",
+    "lines.mouth": "Optional, only for a cut made on a talkingHead route. The field pre-post gate: correlation 0.30 or more, absolute lag 100 ms or less, mouth more open in speech than in pauses. A lag at the search edge is not trusted."
+  }
+}
