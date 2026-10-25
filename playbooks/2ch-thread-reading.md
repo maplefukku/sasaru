@@ -150,8 +150,6 @@ audio:
     present: true
     character: 明るく軽いループ曲。中くらいのテンポで、文字を読む邪魔をしない（参照は聞いていない。作る側の指定）
     entersAt: { beat: b1, offsetSec: 0 }
-    duckUnderVoice: null
-    levelDbUnderVoice: null
   sfx:
     - { cue: card-in, type: レスの札が入るたびの短く軽いポップ音 }
     - { cue: cut, type: ページが横に滑るときの短い風切り音 }
@@ -255,8 +253,6 @@ evidence:
     - captions.c3.position.cy
     - captions.c4.position.cx
     - captions.c4.minHoldSec
-    - audio.bgm.duckUnderVoice
-    - audio.bgm.levelDbUnderVoice
 ---
 
 # 2ch スレ風の文字読み（大学ネタ）
@@ -375,7 +371,7 @@ BGM は入る。参照 4 本のうち 3 本は概要欄に楽曲の提供元の�
 
 1. 台本を JSON にする。ビートごとにページの画像の指定と、札の配列（層、文、色、出る秒、左寄せか右寄せか）を書く。秒は参照の尺 70 秒の上で書き、尺を変えるときは同じ比で伸び縮みさせる。
 2. HyperFrames のプロジェクトを作る: `HYPERFRAMES_SKIP_SKILLS=1 npx -y hyperframes init cut --example blank --resolution portrait --non-interactive`
-3. `index.html` に背景の模様、画像の帯、札の部品を書く。札は白地、枠、角丸なし、左右の位置を交互に。フォントは `@font-face` で宣言する（宣言しないと lint が止める）。GSAP のタイムラインで札の横スライドとページの横スライドを入れる。`Math.random()` と `Date.now()` は使わない。
+3. `index.html` に背景の模様、画像の帯、札の部品を書く。札は白地、枠、角丸なし、左右の位置を交互に。フォントは CSS の font-face 規則で宣言する（宣言しないと lint が止める）。GSAP のタイムラインで札の横スライドとページの横スライドを入れる。`Math.random()` と `Date.now()` は使わない。
 4. 音は `<audio>` を 3 本置く。BGM、札のポップ音、ページの風切り音と落ちの打撃音。参照の音は使わない。
 5. 検査する: `npx hyperframes lint --json`、`npx hyperframes check --json --caption-zone "x0=0;y0=0.04;x1=1;y1=0.88"`、`npx hyperframes snapshot --at 1,8,20,45,68,69.9`
 6. 書き出す: `npx hyperframes render --fps 30 --resolution portrait --quality delivery -o renders/cut.mp4`
