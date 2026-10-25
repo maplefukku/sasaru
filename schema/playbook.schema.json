@@ -160,6 +160,13 @@
     },
     "summary": { "type": "string", "minLength": 1, "maxLength": 200 },
     "tags": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }, "uniqueItems": true },
+    "audience": {
+      "description": "Who the format speaks to, in words. Optional.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
     "fitsContent": {
       "description": "Kinds of the maker's own content this format can carry, for the pick step.",
       "type": "array",
@@ -350,9 +357,9 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["on", "type"],
+            "required": ["cue", "type"],
             "properties": {
-              "on": { "enum": ["card-in", "cut", "zoom", "payoff", "beat-drop", "other"] },
+              "cue": { "description": "What triggers the sound. The key must not be on, which YAML 1.1 parses as true.", "enum": ["card-in", "cut", "zoom", "payoff", "beat-drop", "other"] },
               "at": { "$ref": "#/$defs/at" },
               "type": { "type": "string", "minLength": 1 }
             }

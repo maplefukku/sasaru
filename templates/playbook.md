@@ -5,6 +5,8 @@ name: 型の短い名前
 status: draft
 summary: この型を一文で。何が画面に出て、どこで見る人が止まるか。
 tags: [replace-me]
+audience:
+  - 誰に向けた型か（任意の欄）
 fitsContent:
   - この型に載せられる自分のコンテンツの種類
 source:
@@ -60,7 +62,8 @@ audio:
     entersAt: { beat: b1, offsetSec: 0 }
     duckUnderVoice: null
     levelDbUnderVoice: null
-  sfx: []
+  sfx:
+    - { cue: card-in, type: 効果音の種類を言葉で。素材名は書かない }
   voice: none
   referenceAudioUsed: false
 routes:

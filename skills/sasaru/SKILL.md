@@ -29,7 +29,7 @@ sasaru は、流行っているショート動画の型を playbook として残
 
 迷いやすい依頼。
 
-- 「この動画みたいに、自分の内容で作って」 → ingest、pick、make の順。pick は、いま取り込んだ一本に決めるだけで終わる。
+- 「この動画みたいに、自分の内容で作って」 → ingest、pick、make の順。ingest のあと、取り込んだ id をブリーフの `playbook: <id>` として pick に渡す。pick はその一本に決めるだけで終わる。
 - 「このカットを直して」 → make。直したあと gate。
 - 「この playbook を直して」 → ingest の最後の手順（playbook を書く）からやり直し、gate。
 
