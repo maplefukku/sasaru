@@ -1,0 +1,38 @@
+# The maker's side of one cut: script per beat and layer, brand, and licensed sound files.
+# Sound files are not in the repository. Download them, then set SASARU_ASSETS to their folder:
+#   Insistent (CC0, by yd): https://opengameart.org/content/insistent-background-loop
+#   Interface Sounds (CC0, Kenney): https://kenney.nl/assets/interface-sounds
+cut: zurunote-smoke
+durationSec: 10
+brand:
+  name: ZuruNote
+  ground: "#0F1B2D"
+  pattern: ruled
+  patternColor: "#1E3150"
+  accent: "#FFD84D"
+beats:
+  b1:
+    c1: ["講義、\n録音して", "[[そのまま？]]"]
+  b2:
+    c1: ["録音を\nZuruNoteへ", "ノートと問題が\n[[勝手にできる]]"]
+  b3:
+    c1: ["あとは\n[[解くだけ。]]"]
+    c2: ["ZuruNote"]
+audio:
+  bgm:
+    file: ${SASARU_ASSETS}/insistent.ogg
+    license: CC0-1.0
+    source: https://opengameart.org/content/insistent-background-loop
+    author: yd
+  sfx:
+    - type: pop
+      file: ${SASARU_ASSETS}/kenney_interface-sounds/Audio/drop_002.ogg
+      license: CC0-1.0
+      source: https://kenney.nl/assets/interface-sounds
+      gainDb: -8
+    - type: confirm
+      file: ${SASARU_ASSETS}/kenney_interface-sounds/Audio/confirmation_002.ogg
+      license: CC0-1.0
+      source: https://kenney.nl/assets/interface-sounds
+      gainDb: -6
+  voice: none
