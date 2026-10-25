@@ -55,7 +55,7 @@ captions:
     show: beat-start
     leadSec: null
     hide: next-card
-    minHoldSec: null
+    minHoldSec: 1.0
     lastCard: hold-to-end
   - id: c2
     role: label
@@ -77,7 +77,7 @@ captions:
     show: beat-start
     leadSec: null
     hide: next-card
-    minHoldSec: null
+    minHoldSec: 1.0
     lastCard: hold-to-end
   - id: c3
     role: subtitle
@@ -187,6 +187,8 @@ evidence:
     - captions.c2.charsPerCard
     - captions.c3.position.cy
     - captions.c3.charsPerCard
+    - captions.c1.minHoldSec
+    - captions.c2.minHoldSec
     - captions.c3.minHoldSec
     - camera.moves
     - camera.zooms
@@ -195,9 +197,7 @@ evidence:
     - audio.sfx
     - routes.image-gen-stills.costUsdPerVideo
   unmeasured:
-    - captions.c1.minHoldSec
     - captions.c2.capHeightRatio
-    - captions.c2.minHoldSec
     - captions.c3.capHeightRatio
 ---
 
@@ -230,7 +230,7 @@ evidence:
 
 - **c1 headline（全ビート）** 極太ゴシック 900、白、黒の縁 8 px（1080 幅）、影あり、座布団なし。白い芯の高さは画面高の 0.056 を目安にする（原則 `sasaru-principle-captions-read-as-headlines` の地の句の帯）。位置は中央揃えで cy 0.16、上の安全域 0.11 のすぐ下。二段まで、一枚 6〜16 字。比べる二語（計画と現実など）だけを黄色 `#FFD400` にし、大きさは変えない。段の中で大小を混ぜないため。最初のフレームで出し、一枚のまま最後のフレームまで残す。日本語の参照 2 本は、上の見出しを最後まで出し続けていた。
 - **c2 label（全ビート）** 太ゴシック 800、白字、丸い座布団（pill）。位置は cy 0.25。一段、一枚 2〜12 字。ビートの頭でポップして出し、次の一枚で置き換える。座布団の色で段階を示す。計画は青緑、現実は赤、アフターは製品の色、b5 は前と後の二語を一枚に並べる。座布団の色はスキーマに欄が無いので、ここに書く。最後の一枚（b5）は最後のフレームまで残す。
-- **c3 subtitle（b2〜b4）** 丸ゴシック 800、黒に近い `#111111` の字を白の箱の座布団に載せる。位置は cy 0.33。二段まで、一枚 6〜14 字。句の頭で出し、次の句で消す。最短 1.0 秒は出す（設計書の「1.0 秒未満の表示は警告」に合わせた）。b5 では出さない。並べ止めの絵を字で隠さないため。
+- **c3 subtitle（b2〜b4）** 丸ゴシック 800、黒に近い `#111111` の字を白の箱の座布団に載せる。位置は cy 0.33。二段まで、一枚 6〜14 字。句の頭で出し、次の句で消す。最短 1.0 秒は出す（make の「1.0 秒未満の表示は警告」に合わせた）。b5 では出さない。並べ止めの絵を字で隠さないため。
 
 字は上の 0.11〜0.38 の帯に集める。真ん中から下（0.38〜0.75）はノートと画面に空け、下 0.25 はプラットフォームの UI に譲る。右 0.18 にも字を伸ばさない。
 
@@ -391,11 +391,11 @@ TikTok、Instagram、YouTube に同じ動画を出すなら、焼き込む曲と
 - ビートの秒。10 秒の参照の真ん中での切り替えと、アフターを半分すぎに置く判断から決めた。
 - c1 の 0.056 と縁 8 px。原則 `sasaru-principle-captions-read-as-headlines` の帯から持ってきた。参照で測っていない。
 - 各層の cy。見た参照に共通する「上に見出し、その下にラベル、その下に字幕」の並びを、安全域に合わせて置いた。
-- c3 の最短 1.0 秒。設計書の警告の基準に合わせた。
+- c1、c2、c3 の最短 1.0 秒。make の警告の基準に合わせた。
 - カメラ、ズーム、トランジション、BGM のテンポ、効果音。この型の芯（一回の切り替え）から決めた。参照では測っていない。
 - 安全域はテンプレートの値のまま。
 - image-gen-stills の費用。公式料金ページの単価から計算した。
 
-未計測。c1 と c2 の最短の表示秒、c2 と c3 の白い芯の高さ。BGM と声を比べる欄は、声が無いので書いていない。
+未計測。c2 と c3 の白い芯の高さ。BGM と声を比べる欄は、声が無いので書いていない。
 
 外部の数の出典。Postdom の TikTok トレンド調査 2026 年 10 月号（9 月の上位 559 投稿、2026-10-05 更新、データは CC BY 4.0）。期待 vs 現実は 8 投稿・再生数の中央値 395,010 回・フォロワー比の中央値 79.2 倍・長さの中央値 18.6 秒、ビフォーアフター（Day 1 vs later）は 44 投稿・中央値 667,150 回・長さの中央値 67.2 秒。記事の数で、こちらでは確かめていない。
