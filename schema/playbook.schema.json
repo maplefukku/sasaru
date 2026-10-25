@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/maplefukku/sasaru/schema/playbook.schema.json",
   "title": "sasaru playbook frontmatter",
-  "description": "YAML frontmatter of one playbook file. One file is one short-video format. Numbers describe the form, never the source work: no caption wording, no audio, no frames, no creator identity.",
+  "description": "YAML frontmatter of one playbook file. One file is one short-video format. format, hook, beats, captions, camera, and audio describe the cut this recipe makes on its default route. source.reference describes what the reference showed. Numbers describe the form, never the source work: no caption wording, no audio, no frames, no creator identity.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -25,6 +25,126 @@
     "rights",
     "evidence"
   ],
+  "$defs": {
+    "hex": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+    "beatId": { "type": "string", "pattern": "^b[0-9]+$" },
+    "at": {
+      "description": "A time keyed to a beat, so it scales with the cut. offsetSec is seconds after the beat's tIn on the reference timeline.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["beat", "offsetSec"],
+      "properties": {
+        "beat": { "$ref": "#/$defs/beatId" },
+        "offsetSec": { "type": "number", "minimum": 0 }
+      }
+    },
+    "captionLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "role",
+        "beats",
+        "unit",
+        "writingMode",
+        "font",
+        "capHeightRatio",
+        "emphasis",
+        "color",
+        "stroke",
+        "shadow",
+        "plate",
+        "position",
+        "linesMax",
+        "charsPerCard",
+        "motionIn",
+        "motionOut",
+        "show",
+        "leadSec",
+        "hide",
+        "minHoldSec",
+        "lastCard"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^c[0-9]+$" },
+        "role": { "enum": ["headline", "subtitle", "label", "counter"] },
+        "beats": {
+          "description": "Beat ids this layer appears in. An empty array means every beat.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/beatId" },
+          "uniqueItems": true
+        },
+        "unit": { "enum": ["word", "phrase", "line", "card"] },
+        "writingMode": { "enum": ["horizontal", "vertical"] },
+        "font": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["class", "weight"],
+          "properties": {
+            "class": {
+              "enum": ["extra-bold-gothic", "bold-gothic", "thin-sans", "rounded", "mincho", "handwritten", "mono", "other"]
+            },
+            "weight": { "type": "integer", "minimum": 100, "maximum": 1000 }
+          }
+        },
+        "capHeightRatio": {
+          "description": "Height of one line's white core divided by frame height. null when not measured.",
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "emphasis": {
+          "description": "How emphasized words differ inside this layer. null when the layer has no emphasis.",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["scale", "color"],
+          "properties": {
+            "scale": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "color": { "oneOf": [{ "$ref": "#/$defs/hex" }, { "type": "null" }] }
+          }
+        },
+        "color": { "$ref": "#/$defs/hex" },
+        "stroke": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["color", "px1080"],
+          "properties": {
+            "color": { "$ref": "#/$defs/hex" },
+            "px1080": { "description": "Stroke width in px at 1080 px frame width.", "type": "number", "minimum": 0 }
+          }
+        },
+        "shadow": { "type": "boolean" },
+        "plate": { "enum": ["none", "box", "pill"] },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cx", "cy", "align"],
+          "properties": {
+            "cx": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "cy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "align": { "enum": ["left", "center", "right"] }
+          }
+        },
+        "linesMax": { "type": "integer", "minimum": 1 },
+        "charsPerCard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "motionIn": { "enum": ["cut", "pop", "fade", "slide-up", "typewriter", "word-by-word", "scale-in", "other"] },
+        "motionOut": { "enum": ["cut", "fade", "slide", "other"] },
+        "show": { "enum": ["onset", "before-onset", "beat-start"] },
+        "leadSec": { "description": "Seconds a card appears before its onset when show is before-onset.", "type": ["number", "null"], "minimum": 0 },
+        "hide": { "enum": ["next-card", "phrase-end", "beat-end"] },
+        "minHoldSec": { "description": "Shortest time a card stays on screen. null when not measured.", "type": ["number", "null"], "minimum": 0 },
+        "lastCard": { "enum": ["hold-to-end", "phrase-end"] }
+      }
+    }
+  },
   "properties": {
     "schema": { "const": "sasaru-playbook/1" },
     "id": {
@@ -59,13 +179,29 @@
           "enum": ["A", "B", "C", "none"]
         },
         "ingestedAt": { "type": "string", "format": "date" },
-        "measuredFiles": { "type": "integer", "minimum": 0 }
+        "measuredFiles": { "type": "integer", "minimum": 0 },
+        "reference": {
+          "description": "What the reference showed, when it differs from the recipe. A talking-to-camera reference is recorded here, not in format.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["onCamera", "speech", "hardCuts"],
+          "properties": {
+            "onCamera": { "enum": ["none", "hands", "body-no-face", "face"] },
+            "speech": { "enum": ["none", "voiceover", "on-camera"] },
+            "hardCuts": { "type": ["integer", "null"], "minimum": 0 }
+          }
+        }
+      },
+      "if": { "properties": { "kind": { "const": "ingested" } } },
+      "then": {
+        "required": ["ingestedAt", "reference"],
+        "properties": { "measuredFiles": { "minimum": 1 }, "rightsTier": { "enum": ["A", "B", "C"] } }
       }
     },
     "format": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["aspect", "fps", "durationSec", "hardCuts", "onCamera", "speech"],
+      "required": ["aspect", "fps", "durationSec", "onCamera", "speech"],
       "properties": {
         "aspect": { "enum": ["9:16", "4:5", "1:1", "16:9"] },
         "fps": { "type": "number", "exclusiveMinimum": 0 },
@@ -76,21 +212,33 @@
           "properties": {
             "min": { "type": "number", "exclusiveMinimum": 0 },
             "max": { "type": "number", "exclusiveMinimum": 0 },
-            "reference": { "type": "number", "exclusiveMinimum": 0 }
+            "reference": { "description": "Length of the timeline that beat times are written on.", "type": "number", "exclusiveMinimum": 0 }
           }
         },
-        "hardCuts": { "type": ["integer", "null"], "minimum": 0 },
         "onCamera": {
-          "description": "How a person appears. face means a face is on screen.",
-          "enum": ["none", "hands", "body-no-face", "face"]
+          "description": "How a person appears in the made cut. A face is never part of the default recipe.",
+          "enum": ["none", "hands", "body-no-face"]
         },
-        "speech": { "enum": ["none", "voiceover", "on-camera"] }
+        "speech": { "enum": ["none", "voiceover"] },
+        "safeArea": {
+          "description": "Margins kept clear of platform UI, as fractions of frame size.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["top", "bottom", "left", "right"],
+          "properties": {
+            "top": { "type": "number", "minimum": 0, "maximum": 0.5 },
+            "bottom": { "type": "number", "minimum": 0, "maximum": 0.5 },
+            "left": { "type": "number", "minimum": 0, "maximum": 0.5 },
+            "right": { "type": "number", "minimum": 0, "maximum": 0.5 }
+          }
+        }
       }
     },
     "hook": {
+      "description": "The hook's span is the beat whose role is hook.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "endsAtSec", "firstFrameHasText"],
+      "required": ["type", "firstFrameHasText"],
       "properties": {
         "type": {
           "enum": [
@@ -105,7 +253,6 @@
             "other"
           ]
         },
-        "endsAtSec": { "type": "number", "minimum": 0 },
         "firstFrameHasText": { "type": "boolean" }
       }
     },
@@ -117,113 +264,49 @@
         "additionalProperties": false,
         "required": ["id", "role", "tIn", "tOut", "purpose", "swap"],
         "properties": {
-          "id": { "type": "string", "pattern": "^b[0-9]+$" },
+          "id": { "$ref": "#/$defs/beatId" },
           "role": { "enum": ["hook", "setup", "item", "turn", "payoff", "cta", "loop", "pause"] },
           "tIn": { "type": "number", "minimum": 0 },
           "tOut": { "type": "number", "exclusiveMinimum": 0 },
           "purpose": { "description": "What the beat does for the viewer. No source wording.", "type": "string", "minLength": 1 },
           "swap": { "description": "What the maker puts here from their own content.", "type": "string", "minLength": 1 }
         }
-      }
+      },
+      "contains": { "type": "object", "properties": { "role": { "const": "hook" } }, "required": ["role"] },
+      "minContains": 1,
+      "maxContains": 1
     },
     "captions": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["role"],
-      "properties": {
-        "role": { "enum": ["headline", "subtitle", "none"] },
-        "unit": { "enum": ["word", "phrase", "line", "card"] },
-        "font": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["class", "weight"],
-          "properties": {
-            "class": {
-              "enum": ["extra-bold-gothic", "bold-gothic", "thin-sans", "rounded", "mincho", "handwritten", "mono", "other"]
-            },
-            "weight": { "type": "integer", "minimum": 100, "maximum": 1000 }
-          }
-        },
-        "capHeightRatio": {
-          "description": "Height of one line's white core divided by frame height. null when not measured.",
-          "type": ["number", "null"],
-          "exclusiveMinimum": 0,
-          "maximum": 1
-        },
-        "emphasisScale": { "description": "Emphasis line height over base line height.", "type": ["number", "null"], "exclusiveMinimum": 0 },
-        "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
-        "stroke": {
-          "type": ["object", "null"],
-          "additionalProperties": false,
-          "required": ["color", "px1080"],
-          "properties": {
-            "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
-            "px1080": { "description": "Stroke width in px at 1080 px frame width.", "type": "number", "minimum": 0 }
-          }
-        },
-        "shadow": { "type": "boolean" },
-        "plate": { "enum": ["none", "box", "pill"] },
-        "position": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["cx", "cy", "align"],
-          "properties": {
-            "cx": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-            "cy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-            "align": { "enum": ["left", "center", "right"] }
-          }
-        },
-        "linesMax": { "type": "integer", "minimum": 1 },
-        "charsPerCard": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["min", "max"],
-          "properties": {
-            "min": { "type": "integer", "minimum": 1 },
-            "max": { "type": "integer", "minimum": 1 }
-          }
-        },
-        "motionIn": { "enum": ["cut", "pop", "fade", "slide-up", "typewriter", "word-by-word", "scale-in", "other"] },
-        "motionOut": { "enum": ["cut", "fade", "slide", "other"] },
-        "show": { "enum": ["onset", "before-onset", "beat-start"] },
-        "hide": { "enum": ["next-card", "phrase-end", "beat-end"] },
-        "lastCard": { "enum": ["hold-to-end", "phrase-end"] }
-      },
-      "if": { "properties": { "role": { "enum": ["headline", "subtitle"] } } },
-      "then": {
-        "required": [
-          "unit",
-          "font",
-          "capHeightRatio",
-          "color",
-          "stroke",
-          "shadow",
-          "plate",
-          "position",
-          "linesMax",
-          "charsPerCard",
-          "motionIn",
-          "motionOut",
-          "show",
-          "hide",
-          "lastCard"
-        ]
-      }
+      "description": "Caption layers. An empty array means the format has no captions.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/captionLayer" }
     },
     "camera": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["move", "zooms", "transitions"],
+      "required": ["moves", "zooms", "transitions"],
       "properties": {
-        "move": { "enum": ["static", "handheld", "push-in", "pull-out", "pan", "mixed"] },
+        "moves": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["beat", "move"],
+            "properties": {
+              "beat": { "$ref": "#/$defs/beatId" },
+              "move": { "enum": ["static", "handheld", "push-in", "pull-out", "pan", "tilt", "orbit"] }
+            }
+          }
+        },
         "zooms": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["atSec", "scaleFrom", "scaleTo", "durSec", "easing"],
+            "required": ["at", "scaleFrom", "scaleTo", "durSec", "easing"],
             "properties": {
-              "atSec": { "type": "number", "minimum": 0 },
+              "at": { "$ref": "#/$defs/at" },
               "scaleFrom": { "type": "number", "exclusiveMinimum": 0 },
               "scaleTo": { "type": "number", "exclusiveMinimum": 0 },
               "durSec": { "type": "number", "minimum": 0 },
@@ -236,9 +319,9 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["atSec", "type"],
+            "required": ["at", "type"],
             "properties": {
-              "atSec": { "type": "number", "minimum": 0 },
+              "at": { "$ref": "#/$defs/at" },
               "type": { "enum": ["hard-cut", "whip", "zoom-cut", "fade", "match-cut", "glitch"] }
             }
           }
@@ -257,8 +340,9 @@
           "properties": {
             "present": { "type": "boolean" },
             "character": { "description": "Mood and tempo in words. Never a track title.", "type": "string" },
-            "entersAtSec": { "type": ["number", "null"], "minimum": 0 },
-            "duckUnderVoice": { "type": ["boolean", "null"] }
+            "entersAt": { "oneOf": [{ "$ref": "#/$defs/at" }, { "type": "null" }] },
+            "duckUnderVoice": { "type": ["boolean", "null"] },
+            "levelDbUnderVoice": { "description": "BGM RMS minus voice RMS in dB. null when not measured.", "type": ["number", "null"] }
           }
         },
         "sfx": {
@@ -269,11 +353,12 @@
             "required": ["on", "type"],
             "properties": {
               "on": { "enum": ["card-in", "cut", "zoom", "payoff", "beat-drop", "other"] },
+              "at": { "$ref": "#/$defs/at" },
               "type": { "type": "string", "minLength": 1 }
             }
           }
         },
-        "voice": { "enum": ["none", "tts-voiceover", "own-voiceover", "on-camera"] },
+        "voice": { "enum": ["none", "tts-voiceover", "own-voiceover"] },
         "referenceAudioUsed": { "const": false }
       }
     },
@@ -291,12 +376,17 @@
           "default": { "type": "boolean" },
           "container": { "enum": ["ffmpeg-ass", "remotion", "hyperframes", "three-js", "html-canvas", "capcut", "other"] },
           "needs": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "enum": ["none", "image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync", "tts", "screen-capture", "own-footage", "stock-footage"]
-            },
-            "uniqueItems": true
+            "oneOf": [
+              { "type": "array", "items": { "const": "none" }, "minItems": 1, "maxItems": 1 },
+              {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": ["image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync", "tts", "screen-capture", "own-footage", "stock-footage"]
+                }
+              }
+            ]
           },
           "paidApi": { "type": "boolean" },
           "talkingHead": { "type": "boolean" },
@@ -307,7 +397,8 @@
             "properties": {
               "min": { "type": "number", "minimum": 0 },
               "max": { "type": "number", "minimum": 0 },
-              "basis": { "type": "string", "minLength": 1 }
+              "basis": { "type": "string", "minLength": 1 },
+              "asOf": { "type": "string", "format": "date" }
             }
           },
           "status": { "enum": ["design-only", "written", "tested"] }
@@ -315,15 +406,27 @@
         "allOf": [
           {
             "if": { "properties": { "id": { "const": "r2v-talking" } } },
-            "then": { "properties": { "default": { "const": false }, "talkingHead": { "const": true } } }
+            "then": { "properties": { "talkingHead": { "const": true } } }
+          },
+          {
+            "if": { "properties": { "needs": { "contains": { "enum": ["r2v", "lipsync"] } } } },
+            "then": { "properties": { "talkingHead": { "const": true } } }
           },
           {
             "if": { "properties": { "talkingHead": { "const": true } } },
             "then": { "properties": { "default": { "const": false } } }
           },
           {
+            "if": { "properties": { "needs": { "contains": { "enum": ["image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync"] } } } },
+            "then": { "properties": { "paidApi": { "const": true } }, "required": ["costUsdPerVideo"] }
+          },
+          {
             "if": { "properties": { "paidApi": { "const": false } } },
             "then": { "properties": { "costUsdPerVideo": { "properties": { "min": { "const": 0 }, "max": { "const": 0 } } } } }
+          },
+          {
+            "if": { "properties": { "paidApi": { "const": true } } },
+            "then": { "properties": { "costUsdPerVideo": { "required": ["asOf"] } } }
           }
         ]
       },
@@ -372,5 +475,15 @@
         "unmeasured": { "type": "array", "items": { "type": "string" } }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "enum": ["measured", "produced"] } } },
+      "then": { "properties": { "evidence": { "properties": { "measured": { "minItems": 1 } } } } }
+    },
+    {
+      "if": { "properties": { "captions": { "minItems": 1 } } },
+      "then": { "properties": { "fonts": { "minItems": 1 } } }
+    }
+  ]
 }

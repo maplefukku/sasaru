@@ -15,41 +15,51 @@ source:
 format:
   aspect: "9:16"
   fps: 30
-  durationSec: { min: 6, max: 15 }
-  hardCuts: 0
+  durationSec: { min: 6, max: 15, reference: 6 }
   onCamera: none
   speech: none
+  safeArea: { top: 0.11, bottom: 0.25, left: 0.03, right: 0.18 }
 hook:
   type: text-promise
-  endsAtSec: 1.0
   firstFrameHasText: true
 beats:
   - { id: b1, role: hook, tIn: 0.0, tOut: 1.0, purpose: 見る人に何を約束するか, swap: 自分の約束の一句 }
   - { id: b2, role: payoff, tIn: 1.0, tOut: 6.0, purpose: 約束をどう回収するか, swap: 自分の答え }
 captions:
-  role: headline
-  unit: phrase
-  font: { class: extra-bold-gothic, weight: 900 }
-  capHeightRatio: null
-  emphasisScale: null
-  color: "#FFFFFF"
-  stroke: { color: "#000000", px1080: 8 }
-  shadow: true
-  plate: none
-  position: { cx: 0.5, cy: null, align: center }
-  linesMax: 1
-  charsPerCard: { min: 2, max: 10 }
-  motionIn: cut
-  motionOut: cut
-  show: onset
-  hide: next-card
-  lastCard: hold-to-end
+  - id: c1
+    role: headline
+    beats: []
+    unit: phrase
+    writingMode: horizontal
+    font: { class: extra-bold-gothic, weight: 900 }
+    capHeightRatio: null
+    emphasis: null
+    color: "#FFFFFF"
+    stroke: { color: "#000000", px1080: 8 }
+    shadow: true
+    plate: none
+    position: { cx: 0.5, cy: null, align: center }
+    linesMax: 1
+    charsPerCard: { min: 2, max: 10 }
+    motionIn: cut
+    motionOut: cut
+    show: onset
+    leadSec: null
+    hide: next-card
+    minHoldSec: null
+    lastCard: hold-to-end
 camera:
-  move: static
+  moves:
+    - { beat: b1, move: static }
   zooms: []
   transitions: []
 audio:
-  bgm: { present: true, character: 曲の気分とテンポを言葉で。曲名は書かない, entersAtSec: 0, duckUnderVoice: null }
+  bgm:
+    present: true
+    character: 曲の気分とテンポを言葉で。曲名は書かない
+    entersAt: { beat: b1, offsetSec: 0 }
+    duckUnderVoice: null
+    levelDbUnderVoice: null
   sfx: []
   voice: none
   referenceAudioUsed: false
@@ -72,8 +82,8 @@ rights:
     - 参照動画の映像、音、テロップの文言
 evidence:
   measured: []
-  inferred: [hook.type, beats]
-  unmeasured: [captions.capHeightRatio, captions.position.cy]
+  inferred: [hook.type, beats, format.safeArea, captions.c1.stroke]
+  unmeasured: [captions.c1.capHeightRatio, captions.c1.position.cy, captions.c1.minHoldSec]
 ---
 
 # 型の短い名前
@@ -94,7 +104,7 @@ evidence:
 
 ## テロップ
 
-書体の種類と太さ、大きさ（白い芯の高さ / 画面高）、位置、縁と影、一枚の字数と段数、出し方と消し方、出すタイミングと消すタイミング、最後の一枚の扱い。
+層（`captions[]` の id）ごとに書く。書体の種類と太さ、大きさ（白い芯の高さ / 画面高）、位置、縁と影、一枚の字数と段数、出し方と消し方、出すタイミングと消すタイミング、最短の表示秒、最後の一枚の扱い。一つの層の中で大小を混ぜるなら、その理由。
 
 ## カメラとトランジションとズーム
 

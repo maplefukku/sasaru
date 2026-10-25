@@ -25,7 +25,13 @@ sasaru は、流行っているショート動画の型を playbook として残
 - ローカルの動画ファイルを渡され、型を読んでほしい → **sasaru-ingest**。出力は playbook 一本。
 - 自分のコンテンツがあり、どの型で作るか決めたい → **sasaru-pick**。
 - playbook が決まっていて、一本作りたい → **sasaru-make**。
-- playbook のファイル、または書き出した動画を確かめたい → **sasaru-gate**。ingest と make は、終わる前に必ず gate を通す。
+- playbook のファイル、または書き出した動画を確かめたい → **sasaru-gate**。gate は報告だけで、直さない。ingest と make は、終わる前に必ず gate を通す。
+
+迷いやすい依頼。
+
+- 「この動画みたいに、自分の内容で作って」 → ingest、pick、make の順。pick は、いま取り込んだ一本に決めるだけで終わる。
+- 「このカットを直して」 → make。直したあと gate。
+- 「この playbook を直して」 → ingest の最後の手順（playbook を書く）からやり直し、gate。
 
 止まるところ。
 
