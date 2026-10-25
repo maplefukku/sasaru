@@ -129,8 +129,6 @@ audio:
     present: true
     character: 静かなアコースティックかローファイ。ゆっくりで拍が前に出ず、生活音が上に聞こえる小ささ
     entersAt: { beat: b1, offsetSec: 0 }
-    duckUnderVoice: null
-    levelDbUnderVoice: null
   sfx:
     - { cue: card-in, type: 時刻が替わる合図の小さいクリックかポン }
     - { cue: payoff, at: { beat: b5, offsetSec: 0 }, type: 短いきらめき音を一回 }
@@ -209,8 +207,6 @@ evidence:
     - source.reference.hardCuts
     - captions.c1.capHeightRatio
     - captions.c2.capHeightRatio
-    - audio.bgm.duckUnderVoice
-    - audio.bgm.levelDbUnderVoice
 ---
 
 # タイムスタンプ無言 vlog（講義のある1日）
@@ -272,7 +268,7 @@ c1 と c2 は安全域（上 0.11、下 0.25、右 0.18）の内側、画面の�
 
 このレシピ。
 
-- BGM は静かなアコースティックかローファイ。ゆっくりで、拍が前に出ないもの。b1 の頭から入り、b8 の終わりでフェードアウト。声が無いので、声の下で下げる指定は該当しない。
+- BGM は静かなアコースティックかローファイ。ゆっくりで、拍が前に出ないもの。b1 の頭から入り、b8 の終わりでフェードアウト。声が無いので、声との関係の欄は書かない。
 - 生活音は、撮影とは別に自分で録るか、CC0 の素材を使う。講義室で撮った映像の音は使わない（教員と他の学生の声が入る）。撮った映像の音は全部外す。
 - 時刻が替わる頭（c1 のカードが替わる時）に、小さいクリックかポンを一回。毎回同じ音にして、時刻が進む合図として覚えさせる。
 - b5 の頭（答えの画）に短いきらめき音を一回だけ。他の場所では鳴らさない。
@@ -454,4 +450,4 @@ CapCut でも組めるが、CapCut の音源を使った書き出しは CapCut �
 - `source.reference.speech` の none は、2本の題と説明欄の語と、型の調べの分類から読んだ。残り2本の発話は確かめていない。
 - t2v の費用は、制作ルートの調べ（2026-10-25、各社の公開料金表）の単価から計算した。
 
-未計測のもの。`evidence.unmeasured` の欄。参照のハードカット数、c1 と c2 の白い芯の高さ。`audio.bgm.duckUnderVoice` と `levelDbUnderVoice` は声が無いので該当しない。取り込みのスクリプトで手元のファイルを測れば、`status: measured` に上げられる。
+未計測のもの。`evidence.unmeasured` の欄。参照のハードカット数、c1 と c2 の白い芯の高さ。BGM と声を比べる欄は、声が無いので書いていない。取り込みのスクリプトで手元のファイルを測れば、`status: measured` に上げられる。
