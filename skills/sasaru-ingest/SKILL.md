@@ -36,11 +36,11 @@ uv run --script <skill>/scripts/ingest.py <video> --id <id> --tier <A|B|C> [--pl
 ```
 
 - 置き場所は `--home`、`$SASARU_HOME`、`./sasaru` の順。生成物はすべて `<home>/work/<id>/` に入る。`work/` はコミットしない。
-- 順に `prep.py`（来歴、プローブ、カット、シート、キーフレーム、wav、オンセット、無音区間）、`caption_boxes.py`、`camera_motion.py`、`audio_events.py`、`people_voice.py`、`transcribe.py`、低確信のカットの `zoom.sh`、`draft_playbook.py`、`validate_playbook.py`。
+- 順に `prep.py`（来歴、プローブ、カット、シート、キーフレーム、wav、オンセット、無音区間）、`caption_boxes.py`、`camera_motion.py`、`audio_events.py`、`people_voice.py`、`transcribe.py`、低確信のカットの `zoom.sh`、`draft_playbook.py`。最後に gate の `../sasaru-gate/scripts/validate_playbook.py` で下書きを検査する。
 - 計測スクリプトがこのディレクトリに無ければ `missing`、失敗すれば `failed` と `ingest.json` に残し、その欄を仮置きにして進む。口の形は `<skill>/references/measurements.md`。
 - 言語が分かっていれば `--language` を渡す。短い参照では自動判定が崩れることがある。`transcript.json` の `reliable` が偽なら、その文字起こしをビートにも声の判定にも使わない。
 
-測った結果は `<home>/work/<id>/<id>.md`（下書き）、`ingest.json`（何が動いたか）、`validate.json`（検査の結果）。下書きは、この時点では `todo` と `wording` で不合格になる。それで正しい。
+測った結果は `<home>/work/<id>/<id>.md`（下書き）、`ingest.json`（何が動いたか、`todo` に `未記入` の残る行の数）、`validate.json`（gate の検査の結果）。gate は `未記入` を見ないので、検査が通っても `todo` が 0 になるまでは下書きである。
 
 ## Phase C: 読む
 
@@ -57,7 +57,7 @@ bash <skill>/scripts/zoom.sh <home>/work/<id>/source.mp4 <start> <end> native <h
 ## Phase D: 文言を残す
 
 - シートで読んだテロップの文を、`<home>/work/<id>/source-text.json` の `captions` に足す。一枚ずつ `{"tIn": 0.48, "tOut": 1.74, "text": "…", "from": "sheet"}`。`draft_playbook.py` を回し直しても `"from": "sheet"` の行は残る。
-- テロップが無い参照なら `captions` を `[]` にする。`null` のままだと、テロップの層がある playbook は文言検査が未計測で落ちる。
+- テロップが無い参照なら `captions` を `[]` にする。gate の文言検査は、このファイルの中の文字列とだけ突き合わせる。読んでいないテロップは照合されない。
 - 文字起こしは `transcribe.py` が `transcript` に入れる。声のある参照で `null` なら、`--language` を付けて `transcribe.py` を回す。
 
 ```bash
@@ -80,16 +80,20 @@ uv run --script <skill>/scripts/draft_playbook.py <home>/work/<id> --id <id>
 
 ## Phase F: 検査して置く
 
+playbook 検査は gate のスクリプトを使う。ingest は検査を持たない。
+
 ```bash
-uv run --script <skill>/scripts/validate_playbook.py <home>/work/<id>/<id>.md --work <home>/work/<id>
+grep -n 未記入 <home>/work/<id>/<id>.md
+uv run --script <skill>/../sasaru-gate/scripts/validate_playbook.py <home>/work/<id>/<id>.md --work <home>/work/<id>
 ```
 
-- 欄は `schema`、`headings`、`id`、`beats`、`wording`、`todo`。未計測は不合格と同じに扱う。全部 `pass` になるまで Phase E に戻る。直すのはエージェントで、検査は報告だけ。
+- `grep` が何も出さず、検査の JSON が `"ok": true` になるまで Phase E に戻る。`warnings` も読み、直せるものは直す。直すのはエージェントで、検査は報告だけ。
+- gate のスクリプトが無いときは、ingest を終えない。gate は未実装と返す。
 - 合格したら `<home>/playbooks/<id>.md` に移す。移したあとも同じ検査が通る（`source-text.json` は `<home>/work/<id>/` から探す）。
 
 ```bash
 mkdir -p <home>/playbooks && mv <home>/work/<id>/<id>.md <home>/playbooks/<id>.md
-uv run --script <skill>/scripts/validate_playbook.py <home>/playbooks/<id>.md
+uv run --script <skill>/../sasaru-gate/scripts/validate_playbook.py <home>/playbooks/<id>.md
 ```
 
 ## Outputs

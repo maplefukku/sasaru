@@ -72,10 +72,18 @@ class Evidence:
     def u(self, *paths):
         self.unmeasured += paths
 
-    def dump(self):
-        def uniq(xs):
-            return list(dict.fromkeys(xs))
-        return {"measured": uniq(self.measured), "inferred": uniq(self.inferred), "unmeasured": uniq(self.unmeasured)}
+    def dump(self, fm=None):
+        """`list[].field` expands to one `list.<item id>.field` per item, the path form the gate resolves."""
+        def expand(paths):
+            out = []
+            for path in paths:
+                head, sep, tail = path.partition("[].")
+                if not sep or fm is None:
+                    out.append(path)
+                    continue
+                out += [f"{head}.{item['id']}.{tail}" for item in fm.get(head) or []]
+            return list(dict.fromkeys(out))
+        return {"measured": expand(self.measured), "inferred": expand(self.inferred), "unmeasured": expand(self.unmeasured)}
 
 
 def aspect_of(w, h):
@@ -198,8 +206,14 @@ def caption_layers(cap, beats, onsets_speech, dur, fps, ev):
         layer = {"id": lid, "role": "headline" if base is None or base >= 0.035 else "subtitle",
                  "beats": beats_touching(beats, [(c["tIn"], c["tOut"]) for c in cs])}
         ev.i(f"{p}.role")
-        ev.m(f"{p}.beats", f"{p}.capHeightRatio", f"{p}.emphasis.scale" if emphasis else f"{p}.emphasis",
-             f"{p}.position.cx", f"{p}.position.cy", f"{p}.position.align", f"{p}.linesMax", f"{p}.minHoldSec")
+        ev.m(f"{p}.beats", f"{p}.position.align", f"{p}.linesMax", f"{p}.minHoldSec")
+        (ev.m if base is not None else ev.u)(f"{p}.capHeightRatio")
+        (ev.m if cx is not None else ev.u)(f"{p}.position.cx")
+        (ev.m if cy is not None else ev.u)(f"{p}.position.cy")
+        if emphasis:
+            ev.m(f"{p}.emphasis.scale")
+        else:
+            ev.i(f"{p}.emphasis")
         for k, default in TEMPLATE_LAYER.items():
             if cap.get(k) is not None:
                 layer[k] = cap[k]
@@ -227,7 +241,9 @@ def caption_layers(cap, beats, onsets_speech, dur, fps, ev):
             if leads:
                 med = statistics.median(leads)
                 show, lead = ("before-onset", r(med, 2)) if med > 0.1 else ("onset", None)
-                ev.m(f"{p}.show", f"{p}.leadSec")
+                ev.m(f"{p}.show")
+                if lead is not None:
+                    ev.m(f"{p}.leadSec")
             else:
                 ev.u(f"{p}.show", f"{p}.leadSec")
         else:
@@ -263,7 +279,6 @@ def camera_block(cam, beats, cuts, ev):
         trans = [{"at": at(beats, c["t"]), "type": "hard-cut"} for c in cuts if c.get("confidence") == "high"]
         ev.m("camera.transitions")
         notes.append("トランジションは prep のハードカット（確信の高いもの）だけ。種類の見分けは camera_motion.py の担当で未計測。")
-        ev.u("camera.transitions[].type")
     if cam and cam.get("zoomEvents") is not None:
         zooms = []
         for z in cam["zoomEvents"]:
@@ -298,6 +313,7 @@ def audio_block(probe, onsets, audio_ev, beats, cards, cuts, zooms_t, voice_kind
     notes = []
     if not probe["hasAudio"]:
         ev.m("audio.bgm.present", "audio.sfx", "audio.voice")
+        ev.u("audio.bgm.levelDbUnderVoice")
         return {"bgm": {"present": False, "character": "音声ストリーム無し", "entersAt": None, "duckUnderVoice": None,
                         "levelDbUnderVoice": None}, "sfx": [], "voice": "none", "referenceAudioUsed": False}, ["参照に音声ストリームが無い。"]
     bpm_note = f"prep（librosa）の推定 {onsets['bpm']} BPM、倍と半分は未確認" if onsets else "BPM 未計測"
@@ -310,7 +326,11 @@ def audio_block(probe, onsets, audio_ev, beats, cards, cuts, zooms_t, voice_kind
                "entersAt": at(beats, mu["tStart"]) if mu.get("present") and mu.get("tStart") is not None else None,
                "duckUnderVoice": mu.get("ducksUnderSpeech"),
                "levelDbUnderVoice": r(mu.get("levelDbUnderVoice"), 1)}
-        ev.m("audio.bgm.present", "audio.bgm.entersAt")
+        ev.m("audio.bgm.present")
+        if bgm["entersAt"] is not None:
+            ev.m("audio.bgm.entersAt")
+        elif bgm["present"]:
+            ev.u("audio.bgm.entersAt")
         ev.i("audio.bgm.character")
         (ev.m if bgm["duckUnderVoice"] is not None else ev.u)("audio.bgm.duckUnderVoice")
         (ev.m if bgm["levelDbUnderVoice"] is not None else ev.u)("audio.bgm.levelDbUnderVoice")
@@ -360,7 +380,6 @@ def source_text(work, cap_ocr, transcript):
     else:
         tr = old.get("transcript")
     data = {
-        "note": "Reference wording, read locally for the gate's wording check. Never commit; never copy into a playbook.",
         "captions": caps,
         "transcript": tr,
     }
@@ -478,8 +497,9 @@ def main():
         "rights": {"makerSupplies": ["自分で書いた台本", "自分で撮った映像か、利用の許諾が記録された素材映像",
                                      "再配布か動画内利用の許諾が記録された BGM と効果音のファイル"],
                    "neverUse": ["参照動画の映像、音、テロップの文言"] + (["参照に映る人の顔と声"] if talking or "source.reference.onCamera" in ev.unmeasured else [])},
-        "evidence": ev.dump(),
+        "evidence": None,
     }
+    fm["evidence"] = ev.dump(fm)
     text_data = source_text(work, cap_ocr, transcript)
 
     def status(name):
@@ -508,7 +528,7 @@ def main():
                            "フォントは Noto Sans JP（OFL-1.1、Google Fonts から入手）。ファイルは同梱しない。" if layers else "テロップが無いのでフォントは使わない。"),
         "素材の権利": "作る人が用意するものと使ってはいけないものは `rights` のとおり。参照の映像、音、テロップの文言、参照に映る人の顔と声は使わない。",
         "費用の目安": "どのルートも生成 API を呼ばないので、一本 0 ドル。",
-        "測ったことと推論": measure_summary(steps, ev, transcript, spans_from, text_data),
+        "測ったことと推論": measure_summary(steps, fm["evidence"], transcript, spans_from, text_data),
     }
     title = fm["name"]
     out = Path(a.out) if a.out else work / f"{a.id}.md"
@@ -537,7 +557,7 @@ def route_steps(rt, pid):
     return f"### {rt['id']}\n\n" + "\n".join(f"{i + 1}. {s}" for i, s in enumerate(steps))
 
 
-def measure_summary(steps, ev, transcript, spans_from, text_data):
+def measure_summary(steps, d, transcript, spans_from, text_data):
     names = ["prep", "caption_boxes", "camera_motion", "audio_events", "people_voice", "transcribe"]
     lines = []
     for n in names:
@@ -550,7 +570,6 @@ def measure_summary(steps, ev, transcript, spans_from, text_data):
         lines.append(f"- 発話区間の出どころは {spans_from}。")
     if text_data["captions"] is None:
         lines.append("- テロップの文言はまだ読んでいない。シートを読んで `source-text.json` の `captions` に `\"from\": \"sheet\"` で足す。")
-    d = ev.dump()
     lines.append(f"- 測った欄 {len(d['measured'])}、推論 {len(d['inferred'])}、未計測 {len(d['unmeasured'])}。一覧はフロントマターの `evidence`。")
     return "\n".join(lines)
 

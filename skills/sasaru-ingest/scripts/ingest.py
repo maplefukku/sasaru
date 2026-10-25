@@ -12,7 +12,8 @@ Usage:
 Library root: --home, else $SASARU_HOME, else ./sasaru. Everything lands in <home>/work/<id>/:
   prep outputs, captions.json, camera.json, audio.json, people.json, transcript.json, zoom/,
   source-text.json, <id>.md (the draft), ingest.json (what ran, what was missing), validate.json.
-The draft goes to <home>/playbooks/<id>.md only after the agent fills it and validate_playbook.py passes.
+The draft goes to <home>/playbooks/<id>.md only after the agent replaces every 未記入 and the gate's
+playbook check passes.
 
 Steps, in order. A measuring script that is not in this directory is recorded as missing and its fields
 stay unmeasured; a script that fails is recorded as failed and the run goes on.
@@ -24,7 +25,8 @@ stay unmeasured; a script that fails is recorded as failed and the run goes on.
   transcribe.py <work>/source.<ext> <work>/transcript.json [--speech <work>/audio.json]      (only with audio)
   zoom.sh around each low-confidence cut candidate                      -> zoom/cut-<t>/strip.jpg
   draft_playbook.py <work> --id <id>                                    -> <id>.md, source-text.json
-  validate_playbook.py <work>/<id>.md --work <work>                     -> validate.json (fails until the agent fills 未記入)
+  ../../sasaru-gate/scripts/validate_playbook.py <work>/<id>.md --work <work>   -> validate.json
+  The gate does not look for 未記入; ingest.json "todo" counts the lines that still hold one.
 
 Needs uv, ffmpeg, and ffprobe on PATH. Reads no keys. Tier C never leaves the machine; the only network
 use is fetching Python packages and the local Whisper model.
@@ -41,6 +43,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OPTIONAL = ["caption_boxes", "camera_motion", "audio_events", "people_voice"]
+GATE_VALIDATE = HERE.parents[1] / "sasaru-gate" / "scripts" / "validate_playbook.py"
 
 
 def log(*a):
@@ -153,18 +156,25 @@ def main():
         log("draft_playbook failed; see ingest.json")
         return 2
     draft = work / f"{a.id}.md"
-    v = subprocess.run(uv_script("validate_playbook") + [str(draft), "--work", str(work), "--json"], capture_output=True, text=True)
-    try:
-        report = json.loads(v.stdout.strip().splitlines()[-1])
-    except (json.JSONDecodeError, IndexError):
-        report = {"pass": False, "error": v.stderr.strip().splitlines()[-3:]}
-    (work / "validate.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
     record["draft"] = str(draft)
-    record["validate"] = {k: c["result"] for k, c in report.get("columns", {}).items()}
+    record["todo"] = sum("未記入" in line for line in draft.read_text().splitlines())
+    if GATE_VALIDATE.is_file():
+        v = subprocess.run(["uv", "run", "-q", "--script", str(GATE_VALIDATE), str(draft), "--work", str(work)],
+                           capture_output=True, text=True)
+        try:
+            report = json.loads(v.stdout)
+        except json.JSONDecodeError:
+            report = {"ok": False, "errors": v.stderr.strip().splitlines()[-3:]}
+        (work / "validate.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        record["validate"] = {"ok": report.get("ok"), "errors": len(report.get("errors") or []),
+                              "warnings": len(report.get("warnings") or []),
+                              "wording": (report.get("wording") or {}).get("status")}
+    else:
+        record["validate"] = {"ok": None, "note": f"missing {GATE_VALIDATE}"}
     save()
-    log(v.stderr.strip())
+    log(f"todo: {record['todo']} lines with 未記入; validate: {record['validate']}")
     summary = {"draft": str(draft), "work": str(work), "steps": {k: s["status"] for k, s in steps.items()},
-               "validate": record["validate"]}
+               "todo": record["todo"], "validate": record["validate"]}
     if a.json:
         print(json.dumps(summary, ensure_ascii=False))
     else:
