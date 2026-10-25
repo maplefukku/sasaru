@@ -5,6 +5,9 @@ name: 計画 vs 現実／ノートのビフォーアフター
 status: draft
 summary: 上に比較の見出しを出したまま、計画どおりの絵を崩れた現実で裏切り、変化の直前で一回切ってアフターの画面で救う。最後は前と後を並べて止める。
 tags: [before-after, plan-vs-reality, comparison, no-speech, hands-only, screen-recording, study]
+audience:
+  - 講義やテスト勉強を抱えた学生
+  - 計画どおりに進まなかった経験がある人
 fitsContent:
   - アプリやツールを使う前と後の比較
   - ノートの取り方や勉強法の改善
@@ -121,10 +124,10 @@ audio:
     duckUnderVoice: null
     levelDbUnderVoice: null
   sfx:
-    - { "on": cut, at: { beat: b3, offsetSec: 0.0 }, type: 短いレコードスクラッチか、低いブザー }
-    - { "on": cut, at: { beat: b4, offsetSec: 0.0 }, type: 風切り（シュッ） }
-    - { "on": payoff, at: { beat: b4, offsetSec: 2.0 }, type: きらめき（キラーン） }
-    - { "on": card-in, type: 軽いポップ（ポン）。ほかの効果音と同じフレームなら鳴らさない }
+    - { cue: cut, at: { beat: b3, offsetSec: 0.0 }, type: 短いレコードスクラッチか、低いブザー }
+    - { cue: cut, at: { beat: b4, offsetSec: 0.0 }, type: 風切り（シュッ） }
+    - { cue: payoff, at: { beat: b4, offsetSec: 2.0 }, type: きらめき（キラーン） }
+    - { cue: card-in, type: 軽いポップ（ポン）。ほかの効果音と同じフレームなら鳴らさない }
   voice: none
   referenceAudioUsed: false
 routes:
@@ -150,7 +153,7 @@ routes:
     needs: [image-gen, screen-capture]
     paidApi: true
     talkingHead: false
-    costUsdPerVideo: { min: 0.10, max: 0.30, basis: 前の静止画 3〜6 枚を gemini-nano-banana-2.1 で作る。公式料金の 1K 画像 0.0336 ドル × 3 枚から、2K 画像 0.0504 ドル × 6 枚まで。後は実機の画面録画で無料。作り直しは含めない, asOf: "2026-10-25" }
+    costUsdPerVideo: { min: 0.10, max: 0.30, basis: 前の静止画 3〜6 枚を gemini-nano-banana-2.1 で作る。公式料金の 1K 画像 0.0336 ドル × 3 枚から、2K 画像 0.0504 ドル × 6 枚まで。後は実機の画面録画で無料。作り直しは含めない, asOf: 2026-10-25 }
     status: design-only
 fonts:
   - { family: Noto Sans JP, license: OFL-1.1, source: "https://fonts.google.com/specimen/Noto+Sans+JP" }
