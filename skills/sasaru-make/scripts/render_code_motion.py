@@ -38,6 +38,8 @@ STATIC_WEIGHTS = {"thin": 100, "extralight": 200, "light": 300, "regular": 400, 
                   "semibold": 600, "bold": 700, "extrabold": 800, "black": 900}
 EASE = {"linear": "none", "ease-in": "power2.in", "ease-out": "power2.out", "ease-in-out": "power2.inOut"}
 LOUDNESS_TP = -1.5
+CRF = {"draft": 28, "looks": 16, "delivery": 14, "standard": 18, "high": 14}
+X264_THREADS = 4
 ENV = {"HYPERFRAMES_SKIP_SKILLS": "1", "HYPERFRAMES_NO_TELEMETRY": "1", "DO_NOT_TRACK": "1"}
 
 
@@ -459,7 +461,7 @@ def main() -> int:
     ap.add_argument("cut_dir")
     ap.add_argument("--hyperframes", default=HYPERFRAMES)
     ap.add_argument("--workers", default="1")
-    ap.add_argument("--quality", default="delivery")
+    ap.add_argument("--quality", default="delivery", choices=sorted(CRF))
     ap.add_argument("--accept-license", action="store_true")
     ap.add_argument("--html-only", action="store_true")
     args = ap.parse_args()
@@ -492,6 +494,7 @@ def main() -> int:
         (hf / "meta.json").write_text(json.dumps({"id": plan["cutId"], "name": plan["cutId"]}) + "\n")
 
         hfcmd = ["npx", "-y", f"hyperframes@{args.hyperframes}"]
+        D = plan["format"]["durationSec"]
         lint = run([*hfcmd, "lint", "--json", str(hf)], timeout=600)
         try:
             lint_json = json.loads(lint.stdout[lint.stdout.find("{"):]) if "{" in lint.stdout else {"raw": lint.stdout[-2000:]}
@@ -508,15 +511,33 @@ def main() -> int:
             print(json.dumps({"composition": record["composition"], "lintExit": lint.returncode}, indent=2))
             return 0
 
-        picture = cut_dir / "picture.mp4"
-        r = run([*hfcmd, "render", str(hf), "-o", str(picture), "--fps", str(plan["format"]["fps"]),
-                 "-q", args.quality, "-w", str(args.workers), "--quiet"], timeout=3600)
-        if r.returncode != 0 or not picture.exists():
+        # HyperFrames' own MP4 encode differs with the worker count; its PNG frames do not. Encode here instead.
+        frames = cut_dir / "frames"
+        if frames.exists():
+            shutil.rmtree(frames)
+        fps = plan["format"]["fps"]
+        r = run([*hfcmd, "render", str(hf), "--format", "png-sequence", "-o", str(frames), "--fps", str(fps),
+                 "-w", str(args.workers), "--quiet"], timeout=3600)
+        pngs = sorted(frames.glob("*.png")) if frames.exists() else []
+        if r.returncode != 0 or not pngs:
             raise Refused(f"hyperframes render failed: {(r.stderr or r.stdout)[-1500:]}")
+        n_expected = int(round(D * fps))
+        if len(pngs) != n_expected:
+            raise Refused(f"hyperframes wrote {len(pngs)} frames, expected {n_expected}")
+        picture = cut_dir / "picture.mp4"
+        enc = ["ffmpeg", "-y", "-v", "error", "-framerate", str(fps), "-i", str(frames / "frame_%06d.png"),
+               "-vf", "scale=out_color_matrix=bt709:out_range=tv:flags=bicubic+accurate_rnd+full_chroma_int,format=yuv420p",
+               "-c:v", "libx264", "-preset", "medium", "-crf", str(CRF[args.quality]), "-threads", str(X264_THREADS),
+               "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
+               "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:v", "+bitexact", str(picture)]
+        e = run(enc)
+        if e.returncode != 0:
+            raise Refused(f"ffmpeg encode failed: {e.stderr[-800:]}")
+        frame_md5 = hashlib.md5(b"".join(hashlib.md5(p.read_bytes()).digest() for p in pngs)).hexdigest()
+        shutil.rmtree(frames)
         mix = cut_dir / "mix.wav"
         mix_rec = mix_audio(plan, cut_dir, mix)
         final = cut_dir / "cut.mp4"
-        D = plan["format"]["durationSec"]
         m = run(["ffmpeg", "-y", "-v", "error", "-i", str(picture), "-i", str(mix), "-map", "0:v:0", "-map", "1:a:0",
                  "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", str(D), "-map_metadata", "-1",
                  "-fflags", "+bitexact", "-flags:a", "+bitexact", "-movflags", "+faststart", str(final)])
@@ -525,7 +546,8 @@ def main() -> int:
         if plan.get("credits"):
             (cut_dir / "credits.txt").write_text("\n".join(plan["credits"]) + "\n", encoding="utf-8")
         record.update({
-            "picture": {"path": str(picture), "sha256": sha256(picture)},
+            "picture": {"path": str(picture), "sha256": sha256(picture), "framesMd5": frame_md5, "frames": len(pngs),
+                        "encoder": "libx264", "crf": CRF[args.quality], "x264Threads": X264_THREADS},
             "mix": {"path": str(mix), "sha256": sha256(mix), **{k: v for k, v in mix_rec.items() if k != "command"}},
             "output": {"path": str(final), "sha256": sha256(final), "probe": probe(final)},
             "soundSources": sorted({s["path"] for s in plan["audio"]["sources"]}),

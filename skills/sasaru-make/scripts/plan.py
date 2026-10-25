@@ -57,7 +57,7 @@ EMPHASIS = re.compile(r"\[\[(.+?)\]\]")
 
 
 class Yaml12Loader(yaml.SafeLoader):
-    """YAML 1.2 booleans and no timestamps, so the sfx key `on` stays a string and dates stay strings."""
+    """YAML 1.2 booleans and no timestamps, so yes/no/on/off stay strings and dates stay strings."""
 
 
 Yaml12Loader.yaml_implicit_resolvers = {
@@ -478,7 +478,7 @@ class Plan:
             self.warnings.append("the playbook has no BGM; audio.bgm is ignored")
         files = {s["type"]: s for s in (ca.get("sfx") or [])}
         for s in pa["sfx"]:
-            cue = s.get("cue") or s.get("on")
+            cue = s["cue"]
             src = files.get(s["type"])
             if not src:
                 self.steps.append({"id": f"sfx-{s['type']}", "status": "要決定",

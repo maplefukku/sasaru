@@ -29,3 +29,5 @@
 work/
 cuts/*/hf/
 cuts/*/requests/
+cuts/*/audio/
+cuts/*/frames/

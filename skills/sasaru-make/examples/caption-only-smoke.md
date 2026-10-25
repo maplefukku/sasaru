@@ -86,11 +86,9 @@ audio:
     present: true
     character: 明るめで軽いループ、中くらいのテンポ、声の邪魔をしない
     entersAt: { beat: b1, offsetSec: 0 }
-    duckUnderVoice: null
-    levelDbUnderVoice: null
   sfx:
-    - { on: card-in, type: pop }
-    - { on: payoff, at: { beat: b3, offsetSec: 0 }, type: confirm }
+    - { cue: card-in, type: pop }
+    - { cue: payoff, at: { beat: b3, offsetSec: 0 }, type: confirm }
   voice: none
   referenceAudioUsed: false
 routes:
@@ -122,7 +120,7 @@ rights:
 evidence:
   measured: []
   inferred: [hook.type, beats, format.safeArea, captions.c1.position, captions.c1.emphasis, captions.c1.stroke, captions.c1.leadSec, captions.c1.minHoldSec, captions.c2.capHeightRatio, captions.c2.position, camera.zooms, camera.transitions, audio.sfx]
-  unmeasured: [captions.c1.capHeightRatio, audio.bgm.levelDbUnderVoice]
+  unmeasured: [captions.c1.capHeightRatio]
 ---
 
 # 問いかけから言い切りまでの字だけの三拍
@@ -196,4 +194,4 @@ code-motion は 0 USD（ローカル描画）。i2v は 1 本 0.3〜1.2 USD の�
 
 ## 測ったことと推論
 
-測った数は無い。手書きの型なので、ビート、位置、縁、先行秒、最短表示、寄り、効果音はすべて推論。c1 の白い芯の高さと、声の下の BGM の差は未計測。
+測った数は無い。手書きの型なので、ビート、位置、縁、先行秒、最短表示、寄り、効果音はすべて推論。c1 の白い芯の高さは未計測。声が無いので、声の下の BGM の差は欄ごと書かない。
