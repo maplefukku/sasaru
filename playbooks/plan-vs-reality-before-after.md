@@ -121,8 +121,6 @@ audio:
     present: true
     character: 明るく跳ねるポップかローファイ。テンポは BPM 100〜125 くらい。b3 の頭で半拍ほど止めるかこもらせ、b4 の頭で元に戻す
     entersAt: { beat: b1, offsetSec: 0 }
-    duckUnderVoice: null
-    levelDbUnderVoice: null
   sfx:
     - { cue: cut, at: { beat: b3, offsetSec: 0.0 }, type: 短いレコードスクラッチか、低いブザー }
     - { cue: cut, at: { beat: b4, offsetSec: 0.0 }, type: 風切り（シュッ） }
@@ -201,8 +199,6 @@ evidence:
     - captions.c2.capHeightRatio
     - captions.c2.minHoldSec
     - captions.c3.capHeightRatio
-    - audio.bgm.duckUnderVoice
-    - audio.bgm.levelDbUnderVoice
 ---
 
 # 計画 vs 現実／ノートのビフォーアフター
@@ -249,7 +245,7 @@ evidence:
 
 ## BGM と効果音
 
-- BGM は頭から入れる。明るく跳ねるポップかローファイで、BPM 100〜125 くらい。b3 の頭で半拍ほど止めるか、こもらせて現実の落差を音でも作り、b4 の頭で元に戻す。声が無いので、声との差の dB は該当なし。
+- BGM は頭から入れる。明るく跳ねるポップかローファイで、BPM 100〜125 くらい。b3 の頭で半拍ほど止めるか、こもらせて現実の落差を音でも作り、b4 の頭で元に戻す。声が無いので、BGM と声を比べる欄は書かない。
 - 効果音は四種類。b3 の頭に短いレコードスクラッチか低いブザー、b4 の頭に風切り、b4 の 2.0 秒の寄りにきらめき、ラベルの入れ替わりに軽いポップ。ポップがほかの効果音と同じフレームに重なるときは鳴らさない。
 - 曲と効果音は、ライセンスを記録した別ファイルから入れる（原則 `sasaru-principle-sound-from-a-licensed-file`）。曲名は書かない。参照の音は使わない。
 
@@ -314,7 +310,7 @@ evidence:
    npx hyperframes init plan-vs-reality --example blank --resolution portrait --non-interactive
    ```
 
-6. `index.html` にクリップを置く。b1〜b2 の撮影、b3 の撮影、b4 のスマホの絵と `after_screen.mp4`、b5 の左右二分割。テロップの三層は HTML の要素で組み、書体は `@font-face` で宣言する。BGM と効果音は `<audio>` で別トラックに置く。
+6. `index.html` にクリップを置く。b1〜b2 の撮影、b3 の撮影、b4 のスマホの絵と `after_screen.mp4`、b5 の左右二分割。テロップの三層は HTML の要素で組み、書体は CSS の font-face 規則で宣言する。BGM と効果音は `<audio>` で別トラックに置く。
 7. 書体の宣言漏れを止めてから、決めた秒の静止画で見た目を確かめる。
 
    ```bash
@@ -349,7 +345,7 @@ evidence:
 
 ## 編集の器とフォント
 
-器は三つのルートとも HyperFrames。Apache 2.0 で、書き出しの料金も商用の閾値も無い。同じ composition なら同じ動画になると公式の文書が書いている（マシンをまたぐと 1 画素ずれうるので、厳密にそろえるなら Docker で描画する）。`lint` が `@font-face` の宣言漏れを止めるので、書体の取り違えを防げる。`init`、`lint`、`snapshot`、`render --fps` は v0.8.96 で試した書き方、`render --docker --output` は公式の文書の書き方である。現行版は `--help` で確かめる。Remotion は使わない。
+器は三つのルートとも HyperFrames。Apache 2.0 で、書き出しの料金も商用の閾値も無い。同じ composition なら同じ動画になると公式の文書が書いている（マシンをまたぐと 1 画素ずれうるので、厳密にそろえるなら Docker で描画する）。`lint` が CSS の font-face 規則の宣言漏れを止めるので、書体の取り違えを防げる。`init`、`lint`、`snapshot`、`render --fps` は v0.8.96 で試した書き方、`render --docker --output` は公式の文書の書き方である。現行版は `--help` で確かめる。Remotion は使わない。
 
 フォントは三つとも Google Fonts の OFL-1.1。ファイルはリポジトリに入れず、制作機に入れる。
 
@@ -400,6 +396,6 @@ TikTok、Instagram、YouTube に同じ動画を出すなら、焼き込む曲と
 - 安全域はテンプレートの値のまま。
 - image-gen-stills の費用。公式料金ページの単価から計算した。
 
-未計測。c1 と c2 の最短の表示秒、c2 と c3 の白い芯の高さ、BGM と声の関係（声が無いので該当なし）。
+未計測。c1 と c2 の最短の表示秒、c2 と c3 の白い芯の高さ。BGM と声を比べる欄は、声が無いので書いていない。
 
 外部の数の出典。Postdom の TikTok トレンド調査 2026 年 10 月号（9 月の上位 559 投稿、2026-10-05 更新、データは CC BY 4.0）。期待 vs 現実は 8 投稿・再生数の中央値 395,010 回・フォロワー比の中央値 79.2 倍・長さの中央値 18.6 秒、ビフォーアフター（Day 1 vs later）は 44 投稿・中央値 667,150 回・長さの中央値 67.2 秒。記事の数で、こちらでは確かめていない。
