@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/maplefukku/sasaru/schema/playbook.schema.json",
   "title": "sasaru playbook frontmatter",
-  "description": "YAML frontmatter of one playbook file. One file is one short-video format. format, hook, beats, captions, camera, and audio describe the cut this recipe makes on its default route. source.reference describes what the reference showed. Numbers describe the form, never the source work: no caption wording, no audio, no frames, no creator identity. null has exactly one meaning per field, named in that field's description. null: unmeasured means nobody measured or chose the value yet, and the field's path is listed in evidence.unmeasured. null: not applicable means the feature does not exist in this format. null never means no limit. A limit that does not apply is an optional field left out, such as format.safeArea. An optional field that does not apply to this format is left out, never null. productPlacement is left out only when the format never has a product slot. null is not a value for it and does not mean an end-card pitch. spreadPsychology is left out only when no beat has role payoff. A payoff beat means the format's job is to be watched to the end, so omitting the field is not allowed. null is not a value for it and is not a view count. plays, comments, and shares each name a psychological mechanism and what in the format triggers it, and mark that inference as inferred.",
+  "description": "YAML frontmatter of one playbook file. One file is one short-video format. format, hook, beats, captions, camera, and audio describe the cut this recipe makes on its default route. source.reference describes what the reference showed. Numbers describe the form, never the source work: no caption wording, no audio, no frames, no creator identity. null has exactly one meaning per field, named in that field's description. null: unmeasured means nobody measured or chose the value yet, and the field's path is listed in evidence.unmeasured. null: not applicable means the feature does not exist in this format. null never means no limit. A limit that does not apply is an optional field left out, such as format.safeArea. An optional field that does not apply to this format is left out, never null. productPlacement is left out only when the format never has a product slot. null is not a value for it and does not mean an end-card pitch. spreadPsychology is left out only when no beat has role payoff. A payoff beat means the format's job is to be watched to the end, so omitting the field is not allowed. null is not a value for it and is not a view count. plays, comments, and shares each name a psychological mechanism and what in the format triggers it, and mark that inference as inferred. verbalization, spread, and scenario are required when a beat has role payoff, because that format is a story meant to be watched to the end. Omit those three objects only when the format is not that story. Omitting them does not mean the analysis was skipped. null is not a value on these fields or on their parts. scenario.story is prose. A shot-number list or a word list does not satisfy it. make refuses to plan a cut when scenario.story is missing, empty, or null.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -28,17 +28,602 @@
     "evidence"
   ],
   "$defs": {
-    "hex": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
-    "beatId": { "type": "string", "pattern": "^b[0-9]+$" },
+    "hex": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "beatId": {
+      "type": "string",
+      "pattern": "^b[0-9]+$"
+    },
     "spreadPart": {
       "description": "One psychological mechanism. mechanism names the mechanism. trigger names what in this format sets it off. basis is inferred: the agent is labeling an inference, not reporting a measured view count.",
       "type": "object",
       "additionalProperties": false,
       "required": ["mechanism", "trigger", "basis"],
       "properties": {
-        "mechanism": { "description": "The psychological mechanism, in words. Not a view count.", "type": "string", "minLength": 1 },
-        "trigger": { "description": "What in this format sets the mechanism off, in words. Not a view count.", "type": "string", "minLength": 1 },
-        "basis": { "description": "inferred: the agent wrote this as an inference. A measured view count is not a value here.", "const": "inferred" }
+        "mechanism": {
+          "description": "The psychological mechanism, in words. Not a view count.",
+          "type": "string",
+          "minLength": 1
+        },
+        "trigger": {
+          "description": "What in this format sets the mechanism off, in words. Not a view count.",
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "description": "inferred: the agent wrote this as an inference. A measured view count is not a value here.",
+          "const": "inferred"
+        }
+      }
+    },
+    "reading": {
+      "description": "Words for one reading. Not a view count. null is not a value.",
+      "type": "string",
+      "minLength": 8,
+      "allOf": [
+        {
+          "not": {
+            "pattern": "\\d[\\d,.]*\\s*(?:万|億)?\\s*(?:回|再生)|再生数|視聴回数|視聴数|view\\s*counts?"
+          }
+        }
+      ]
+    },
+    "storyProse": {
+      "description": "Prose a person can retell. A shot-number list or a word list does not satisfy it. Empty is invalid. null is not a value.",
+      "type": "string",
+      "minLength": 40,
+      "allOf": [
+        {
+          "pattern": "[。！？]"
+        },
+        {
+          "not": {
+            "pattern": "(?:^|\\n)\\s*(?:[Ss]hot\\s+)?b?\\d+\\s*[.)）．、]"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|\\n)\\s*b\\d+\\s*[:：]"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^\\s*[A-Za-z][A-Za-z0-9'-]*(?:\\s*[/、,]\\s*[A-Za-z][A-Za-z0-9'-]*)+\\s*$"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^\\s*(?:b\\d+|\\d+)(?:\\s+(?:b\\d+|\\d+))+\\s*$"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^\\s*(?:[^。！？\\n]{1,12}[、,／/]\\s*)+[^。！？\\n]{0,12}[。！？]?\\s*$"
+          }
+        },
+        {
+          "not": {
+            "pattern": "\\d[\\d,.]*\\s*(?:万|億)?\\s*(?:回|再生)|再生数|視聴回数"
+          }
+        }
+      ]
+    },
+    "pictureSecond": {
+      "description": "One second of verbalization.picture. seen is what was on the frame. inferred.pointAt is what a viewer could point at, or 決められない. inferred.camera is an operation or gear guess and is omitted when there is no guess. seen.camera is the visible motion, not that guess. Do not put source sentences, titles, or names in either. This reading does not write evidence.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sec", "seen", "inferred"],
+      "properties": {
+        "sec": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seen": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["onScreen", "entered", "left", "camera"],
+          "properties": {
+            "onScreen": {
+              "$ref": "#/$defs/reading"
+            },
+            "entered": {
+              "type": "string",
+              "minLength": 1
+            },
+            "left": {
+              "type": "string",
+              "minLength": 1
+            },
+            "camera": {
+              "description": "Visible motion only. Not an operation name or a piece of gear.",
+              "enum": [
+                "止まっている",
+                "大きくなった",
+                "小さくなった",
+                "横へ流れた",
+                "縦へ流れた",
+                "揺れた",
+                "別の画に切り替わった"
+              ]
+            }
+          }
+        },
+        "inferred": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pointAt"],
+          "properties": {
+            "pointAt": {
+              "description": "What a viewer could point at, in short order, or 決められない when nothing on screen is the point. Not a source sentence.",
+              "oneOf": [
+                {
+                  "const": "決められない"
+                },
+                {
+                  "$ref": "#/$defs/reading"
+                }
+              ]
+            },
+            "camera": {
+              "description": "Operation or gear inferred from the visible change. Omit the key when there is no such guess.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sec": {
+                "const": 0
+              }
+            },
+            "required": ["sec"]
+          },
+          "then": {
+            "properties": {
+              "seen": {
+                "properties": {
+                  "entered": {
+                    "const": "なし"
+                  },
+                  "left": {
+                    "const": "なし"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "editEvent": {
+      "description": "One edit event. kind is cut, hold, zoom, or transition. basis seen means the second could be pointed at on a frame. basis inferred means it could not. Those seconds are not evidence.measured. A one-frame boundary is kind cut, not a transition. The picture's subject is not a property. Do not fold a zoom into the surrounding hold.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tIn", "kind", "basis"],
+      "properties": {
+        "tIn": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tOut": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "kind": {
+          "enum": ["cut", "hold", "zoom", "transition"]
+        },
+        "basis": {
+          "enum": ["seen", "inferred"]
+        },
+        "holdSec": {
+          "description": "Length of a hold, in seconds.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "job": {
+          "description": "ジャンプを隠す, 新しい段を開く, or 決められない. A cut has exactly one.",
+          "enum": ["ジャンプを隠す", "新しい段を開く", "決められない"]
+        },
+        "direction": {
+          "description": "寄る or 引く.",
+          "enum": ["寄る", "引く"]
+        },
+        "zoomSec": {
+          "description": "Length of a zoom, in seconds, from its start to its end. Do not fold it into a surrounding hold.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "transition": {
+          "enum": ["whip", "zoom-cut", "fade", "match-cut", "glitch"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "hold"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["tOut", "holdSec"]
+          },
+          "else": {
+            "not": {
+              "required": ["holdSec"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "cut"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["job"]
+          },
+          "else": {
+            "not": {
+              "required": ["job"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "zoom"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["tOut", "direction", "zoomSec"]
+          },
+          "else": {
+            "allOf": [
+              {
+                "not": {
+                  "required": ["direction"]
+                }
+              },
+              {
+                "not": {
+                  "required": ["zoomSec"]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "transition"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["tOut", "transition"]
+          },
+          "else": {
+            "not": {
+              "required": ["transition"]
+            }
+          }
+        }
+      ]
+    },
+    "wordInterval": {
+      "description": "One on-screen word from the second it appears until it leaves. The source glyphs are not a property. role is the word's job, inferred, not its spelling and not its place in a sentence. A number in the size fields is a measurement. 未計測 means it was not measured. An eye impression is not written as that number, and a constant is not a substitute. null is not a value.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order",
+        "tIn",
+        "tOut",
+        "role",
+        "capHeightRatio",
+        "cx",
+        "cy",
+        "nameKind",
+        "basis"
+      ],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tIn": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tOut": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "role": {
+          "enum": ["終状態の名前", "手順", "喝", "なし"]
+        },
+        "capHeightRatio": {
+          "description": "White-core height over frame height. A number was measured. 未計測 was not. null is not a value.",
+          "oneOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            },
+            {
+              "const": "未計測"
+            }
+          ]
+        },
+        "cx": {
+          "description": "Horizontal center of the core box, left 0, right 1. A number was measured. 未計測 was not. null is not a value.",
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "const": "未計測"
+            }
+          ]
+        },
+        "cy": {
+          "description": "Vertical center of the core box, top 0, bottom 1. A number was measured. 未計測 was not. null is not a value.",
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "const": "未計測"
+            }
+          ]
+        },
+        "nameKind": {
+          "enum": ["カテゴリ", "固有名", "どちらでもない"]
+        },
+        "basis": {
+          "description": "The role is an inference, not a measured box.",
+          "const": "inferred"
+        }
+      }
+    },
+    "soundSpan": {
+      "description": "One sound span. class is hit, bed, voice, or silence. syncedTo and syncBasis belong only to hit. holdBeforePayoff and holdBasis belong only to silence. Lyrics are not a property.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tIn", "tOut", "entered", "dropped", "class", "basis"],
+      "properties": {
+        "tIn": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tOut": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "entered": {
+          "enum": ["start", "mid"]
+        },
+        "dropped": {
+          "type": "boolean"
+        },
+        "dipSec": {
+          "description": "A second inside the span where the level falls and the sound is still heard. Not a drop.",
+          "type": "number",
+          "minimum": 0
+        },
+        "class": {
+          "enum": ["hit", "bed", "voice", "silence"]
+        },
+        "basis": {
+          "enum": ["seen", "inferred"]
+        },
+        "syncedTo": {
+          "enum": [
+            "cut",
+            "caption-in",
+            "zoom",
+            "contact",
+            "payoff",
+            "beat",
+            "other"
+          ]
+        },
+        "syncBasis": {
+          "const": "seen"
+        },
+        "periodSec": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "periodBasis": {
+          "enum": ["seen", "inferred"]
+        },
+        "holdBeforePayoff": {
+          "type": "boolean"
+        },
+        "holdBasis": {
+          "const": "inferred"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "class": {
+                "const": "hit"
+              }
+            },
+            "required": ["class"]
+          },
+          "then": {
+            "required": ["syncedTo", "syncBasis"]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": ["syncedTo"]
+                },
+                {
+                  "required": ["syncBasis"]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "class": {
+                "const": "silence"
+              }
+            },
+            "required": ["class"]
+          },
+          "then": {
+            "required": ["holdBeforePayoff", "holdBasis"]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": ["holdBeforePayoff"]
+                },
+                {
+                  "required": ["holdBasis"]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["periodSec"]
+          },
+          "then": {
+            "required": ["periodBasis"]
+          }
+        }
+      ]
+    },
+    "pullBeat": {
+      "description": "One beat of verbalization.pull. wantsNext, openPromise, and leaveSec. basis on the parent is inferred.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tIn", "tOut", "wantsNext", "openPromise", "leaveSec"],
+      "properties": {
+        "tIn": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tOut": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "wantsNext": {
+          "$ref": "#/$defs/reading"
+        },
+        "openPromise": {
+          "$ref": "#/$defs/reading"
+        },
+        "leaveSec": {
+          "description": "The second the viewer would leave if the next beat failed this want. Not a measured leave rate.",
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "escalationStep": {
+      "description": "One build step after the first. flatIfRepeated names the beat that would go flat if this step repeated the previous one. null is not a value.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["build", "change", "flatIfRepeated", "basis"],
+      "properties": {
+        "build": {
+          "$ref": "#/$defs/reading"
+        },
+        "change": {
+          "$ref": "#/$defs/reading"
+        },
+        "flatIfRepeated": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "const": "inferred"
+        }
+      }
+    },
+    "payoffBeat": {
+      "description": "One of anticipation, hit, or settle. onScreen is the on-screen change, not a label with no change.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tIn", "tOut", "onScreen"],
+      "properties": {
+        "tIn": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tOut": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "onScreen": {
+          "$ref": "#/$defs/reading"
+        }
+      }
+    },
+    "accountPattern": {
+      "description": "What repeats across more than one video from the same account, what does not, and the story machine in prose. A shot list of one reel does not satisfy it. null is not a value. Written only after picture, edit, words, sound, and pull exist.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["繰り返すところ", "繰り返さないところ", "物語の機械"],
+      "properties": {
+        "繰り返すところ": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["冒頭", "不可能な制約", "エスカレーション", "回収"],
+          "properties": {
+            "冒頭": {
+              "$ref": "#/$defs/storyProse"
+            },
+            "不可能な制約": {
+              "$ref": "#/$defs/storyProse"
+            },
+            "エスカレーション": {
+              "$ref": "#/$defs/storyProse"
+            },
+            "回収": {
+              "$ref": "#/$defs/storyProse"
+            }
+          }
+        },
+        "繰り返さないところ": {
+          "$ref": "#/$defs/storyProse"
+        },
+        "物語の機械": {
+          "$ref": "#/$defs/storyProse"
+        }
       }
     },
     "at": {
@@ -47,8 +632,13 @@
       "additionalProperties": false,
       "required": ["beat", "offsetSec"],
       "properties": {
-        "beat": { "$ref": "#/$defs/beatId" },
-        "offsetSec": { "type": "number", "minimum": 0 }
+        "beat": {
+          "$ref": "#/$defs/beatId"
+        },
+        "offsetSec": {
+          "type": "number",
+          "minimum": 0
+        }
       }
     },
     "captionLayer": {
@@ -79,25 +669,49 @@
         "lastCard"
       ],
       "properties": {
-        "id": { "type": "string", "pattern": "^c[0-9]+$" },
-        "role": { "enum": ["headline", "subtitle", "label", "counter"] },
+        "id": {
+          "type": "string",
+          "pattern": "^c[0-9]+$"
+        },
+        "role": {
+          "enum": ["headline", "subtitle", "label", "counter"]
+        },
         "beats": {
           "description": "Beat ids this layer appears in. An empty array means every beat.",
           "type": "array",
-          "items": { "$ref": "#/$defs/beatId" },
+          "items": {
+            "$ref": "#/$defs/beatId"
+          },
           "uniqueItems": true
         },
-        "unit": { "enum": ["word", "phrase", "line", "card"] },
-        "writingMode": { "enum": ["horizontal", "vertical"] },
+        "unit": {
+          "enum": ["word", "phrase", "line", "card"]
+        },
+        "writingMode": {
+          "enum": ["horizontal", "vertical"]
+        },
         "font": {
           "type": "object",
           "additionalProperties": false,
           "required": ["class", "weight"],
           "properties": {
             "class": {
-              "enum": ["extra-bold-gothic", "bold-gothic", "thin-sans", "rounded", "mincho", "handwritten", "mono", "other"]
+              "enum": [
+                "extra-bold-gothic",
+                "bold-gothic",
+                "thin-sans",
+                "rounded",
+                "mincho",
+                "handwritten",
+                "mono",
+                "other"
+              ]
             },
-            "weight": { "type": "integer", "minimum": 100, "maximum": 1000 }
+            "weight": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 1000
+            }
           }
         },
         "capHeightRatio": {
@@ -112,83 +726,198 @@
           "additionalProperties": false,
           "required": ["scale", "color"],
           "properties": {
-            "scale": { "description": "Emphasis line height over base line height. null: not applicable, size does not change.", "type": ["number", "null"], "exclusiveMinimum": 0 },
-            "color": { "description": "null: not applicable, color does not change.", "oneOf": [{ "$ref": "#/$defs/hex" }, { "type": "null" }] }
+            "scale": {
+              "description": "Emphasis line height over base line height. null: not applicable, size does not change.",
+              "type": ["number", "null"],
+              "exclusiveMinimum": 0
+            },
+            "color": {
+              "description": "null: not applicable, color does not change.",
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/hex"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
           }
         },
-        "color": { "$ref": "#/$defs/hex" },
+        "color": {
+          "$ref": "#/$defs/hex"
+        },
         "stroke": {
           "description": "null: not applicable, the layer has no stroke.",
           "type": ["object", "null"],
           "additionalProperties": false,
           "required": ["color", "px1080"],
           "properties": {
-            "color": { "$ref": "#/$defs/hex" },
-            "px1080": { "description": "Stroke width in px at 1080 px frame width.", "type": "number", "minimum": 0 }
+            "color": {
+              "$ref": "#/$defs/hex"
+            },
+            "px1080": {
+              "description": "Stroke width in px at 1080 px frame width.",
+              "type": "number",
+              "minimum": 0
+            }
           }
         },
-        "shadow": { "type": "boolean" },
-        "plate": { "enum": ["none", "box", "pill"] },
+        "shadow": {
+          "type": "boolean"
+        },
+        "plate": {
+          "enum": ["none", "box", "pill"]
+        },
         "position": {
           "type": "object",
           "additionalProperties": false,
           "required": ["cx", "cy", "align"],
           "properties": {
-            "cx": { "description": "null: unmeasured.", "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-            "cy": { "description": "null: unmeasured.", "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-            "align": { "enum": ["left", "center", "right"] }
+            "cx": {
+              "description": "null: unmeasured.",
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "cy": {
+              "description": "null: unmeasured.",
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "align": {
+              "enum": ["left", "center", "right"]
+            }
           }
         },
-        "linesMax": { "type": "integer", "minimum": 1 },
+        "linesMax": {
+          "type": "integer",
+          "minimum": 1
+        },
         "charsPerCard": {
           "type": "object",
           "additionalProperties": false,
           "required": ["min", "max"],
           "properties": {
-            "min": { "type": "integer", "minimum": 1 },
-            "max": { "type": "integer", "minimum": 1 }
+            "min": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         },
-        "motionIn": { "enum": ["cut", "pop", "fade", "slide-up", "typewriter", "word-by-word", "scale-in", "other"] },
-        "motionOut": { "enum": ["cut", "fade", "slide", "other"] },
-        "show": { "enum": ["onset", "before-onset", "beat-start"] },
-        "leadSec": { "description": "Seconds a card appears before its onset. A number when show is before-onset. null: not applicable, for every other show.", "type": ["number", "null"], "minimum": 0 },
-        "hide": { "enum": ["next-card", "phrase-end", "beat-end"] },
-        "minHoldSec": { "description": "Shortest time a card stays on screen. null: unmeasured.", "type": ["number", "null"], "minimum": 0 },
-        "lastCard": { "enum": ["hold-to-end", "phrase-end"] }
+        "motionIn": {
+          "enum": [
+            "cut",
+            "pop",
+            "fade",
+            "slide-up",
+            "typewriter",
+            "word-by-word",
+            "scale-in",
+            "other"
+          ]
+        },
+        "motionOut": {
+          "enum": ["cut", "fade", "slide", "other"]
+        },
+        "show": {
+          "enum": ["onset", "before-onset", "beat-start"]
+        },
+        "leadSec": {
+          "description": "Seconds a card appears before its onset. A number when show is before-onset. null: not applicable, for every other show.",
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "hide": {
+          "enum": ["next-card", "phrase-end", "beat-end"]
+        },
+        "minHoldSec": {
+          "description": "Shortest time a card stays on screen. null: unmeasured.",
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "lastCard": {
+          "enum": ["hold-to-end", "phrase-end"]
+        }
       },
-      "if": { "properties": { "show": { "const": "before-onset" } } },
-      "then": { "properties": { "leadSec": { "type": "number" } } },
-      "else": { "properties": { "leadSec": { "type": "null" } } }
+      "if": {
+        "properties": {
+          "show": {
+            "const": "before-onset"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "leadSec": {
+            "type": "number"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "leadSec": {
+            "type": "null"
+          }
+        }
+      }
     }
   },
   "properties": {
-    "schema": { "const": "sasaru-playbook/3" },
+    "schema": {
+      "const": "sasaru-playbook/4"
+    },
     "id": {
       "description": "Kebab-case. Equals the file name without .md.",
       "type": "string",
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
       "maxLength": 64
     },
-    "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+    },
     "status": {
       "description": "draft: inferred only. measured: numbers came from ingest. produced: at least one cut was made with this playbook and passed the gate.",
       "enum": ["draft", "measured", "produced"]
     },
-    "summary": { "type": "string", "minLength": 1, "maxLength": 200 },
-    "tags": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }, "uniqueItems": true },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "uniqueItems": true
+    },
     "audience": {
       "description": "Who the format speaks to, in words. Optional.",
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "minLength": 1 },
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true
     },
     "fitsContent": {
       "description": "Kinds of the maker's own content this format can carry, for the pick step.",
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "minLength": 1 },
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true
     },
     "contentRoute": {
@@ -201,8 +930,13 @@
       "additionalProperties": false,
       "required": ["of", "words"],
       "properties": {
-        "of": { "enum": ["reference-world", "moguno"] },
-        "words": { "type": "string", "minLength": 1 }
+        "of": {
+          "enum": ["reference-world", "moguno"]
+        },
+        "words": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "productPlacement": {
@@ -211,7 +945,10 @@
       "additionalProperties": false,
       "required": ["beat", "role", "directness"],
       "properties": {
-        "beat": { "description": "Beat id where this style places the product, including when the role is absent.", "$ref": "#/$defs/beatId" },
+        "beat": {
+          "description": "Beat id where this style places the product, including when the role is absent.",
+          "$ref": "#/$defs/beatId"
+        },
         "role": {
           "description": "absent: this format does not show it. prop: an object inside the world. payoff: it arrives with the world's payoff, and is still not the subject. spoken: the name is said. end-card: a card the style asked for, not a default pitch.",
           "enum": ["absent", "prop", "payoff", "spoken", "end-card"]
@@ -229,9 +966,624 @@
       "additionalProperties": false,
       "required": ["plays", "comments", "shares"],
       "properties": {
-        "plays": { "$ref": "#/$defs/spreadPart" },
-        "comments": { "$ref": "#/$defs/spreadPart" },
-        "shares": { "$ref": "#/$defs/spreadPart" }
+        "plays": {
+          "$ref": "#/$defs/spreadPart"
+        },
+        "comments": {
+          "$ref": "#/$defs/spreadPart"
+        },
+        "shares": {
+          "$ref": "#/$defs/spreadPart"
+        }
+      }
+    },
+    "verbalization": {
+      "description": "Fine verbalization, in the router order picture, edit, words, sound, pull, accountPattern. Required when a beat has role payoff, the format meant to be watched to the end. Omit the object only when the format is not that story. Omitting it does not mean the analysis was skipped. null is not a value. Source glyphs are not a property of words. accountPattern is not a shot list of one reel.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "picture",
+        "edit",
+        "words",
+        "sound",
+        "pull",
+        "accountPattern"
+      ],
+      "properties": {
+        "picture": {
+          "description": "One object per integer second from 0 through the last second that still has a frame. Do not skip a second in a finished reading. Second 0 has no previous frame, so entered and left are なし.",
+          "type": "array",
+          "minItems": 1,
+          "contains": {
+            "type": "object",
+            "properties": {
+              "sec": {
+                "const": 0
+              }
+            },
+            "required": ["sec"]
+          },
+          "items": {
+            "$ref": "#/$defs/pictureSecond"
+          }
+        },
+        "edit": {
+          "description": "Edit events in time order. The picture's subject is not written here. A listed video that could not be opened is a name in missing and has no events.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["events"],
+          "properties": {
+            "missing": {
+              "description": "Names of listed videos that could not be opened. No events are written for them.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/editEvent"
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "missing": {
+                    "minItems": 1
+                  }
+                },
+                "required": ["missing"]
+              },
+              "else": {
+                "properties": {
+                  "events": {
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "words": {
+          "description": "Intervals of on-screen words. The source spelling is not a property. Do not copy glyphs from the reference or from words.md into this field. missing is empty when no listed video was absent, which is なし. Do not invent intervals for a missing file. An empty interval list is a video with no on-screen word, not a shot list. Unmeasured size is 未計測, not a constant and not null.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["missing", "intervals"],
+          "properties": {
+            "missing": {
+              "description": "Listed videos that had no file. Empty when none were missing.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "intervals": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/wordInterval"
+              }
+            }
+          }
+        },
+        "sound": {
+          "description": "Sound spans for one local file. missing true means the file was named and absent: sourceFile and missing only, no spans. Lyrics, titles, and authors are not properties.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sourceFile": {
+              "type": "string",
+              "minLength": 1
+            },
+            "missing": {
+              "type": "boolean"
+            },
+            "durationSec": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "durationBasis": {
+              "const": "seen"
+            },
+            "probe": {
+              "type": "string",
+              "minLength": 1
+            },
+            "spans": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/soundSpan"
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "missing": {
+                    "const": true
+                  }
+                },
+                "required": ["missing"]
+              },
+              "then": {
+                "required": ["sourceFile", "missing"],
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": ["spans"]
+                    },
+                    {
+                      "required": ["durationSec"]
+                    },
+                    {
+                      "required": ["durationBasis"]
+                    },
+                    {
+                      "required": ["probe"]
+                    }
+                  ]
+                }
+              },
+              "else": {
+                "required": [
+                  "sourceFile",
+                  "durationSec",
+                  "durationBasis",
+                  "spans"
+                ],
+                "properties": {
+                  "spans": {
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "pull": {
+          "description": "What keeps the viewer, one beat at a time. basis is inferred. Not a view count.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["basis", "beats"],
+          "properties": {
+            "basis": {
+              "const": "inferred"
+            },
+            "beats": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/pullBeat"
+              }
+            }
+          }
+        },
+        "accountPattern": {
+          "$ref": "#/$defs/accountPattern"
+        }
+      }
+    },
+    "spread": {
+      "description": "Fine spread readings, in the router order open, lock, escalation, payoff, comment, share, leave. Required when a beat has role payoff, the format meant to be watched to the end. Omit the object only when the format is not that story. Omitting it does not mean the analysis was skipped. null is not a value. Each basis is inferred. A view count is not a value. spreadPsychology stays beside this object.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "open",
+        "lock",
+        "escalation",
+        "payoff",
+        "comment",
+        "share",
+        "leave"
+      ],
+      "properties": {
+        "open": {
+          "description": "The first three seconds. howTo true means the opening is a procedure and this flow does not pass, and the reading is still written. null is not a value.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claim", "endStateWordOnScreen", "howTo", "basis"],
+          "properties": {
+            "claim": {
+              "$ref": "#/$defs/reading"
+            },
+            "endStateWordOnScreen": {
+              "type": "boolean"
+            },
+            "howTo": {
+              "type": "boolean"
+            },
+            "basis": {
+              "const": "inferred"
+            }
+          }
+        },
+        "lock": {
+          "description": "The ordinary first step that is blocked, the second that block appears, and why a straight what-if fails.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "blockedMethod",
+            "blockSecond",
+            "straightWhatIfFails",
+            "basis"
+          ],
+          "properties": {
+            "blockedMethod": {
+              "$ref": "#/$defs/reading"
+            },
+            "blockSecond": {
+              "type": "number",
+              "minimum": 0
+            },
+            "straightWhatIfFails": {
+              "$ref": "#/$defs/reading"
+            },
+            "basis": {
+              "const": "inferred"
+            }
+          }
+        },
+        "escalation": {
+          "description": "An ordered sequence of build steps, not one adjective. The first step has no flatIfRepeated. Later steps name the beat that would go flat if repeated. null is not a value.",
+          "type": "array",
+          "minItems": 1,
+          "prefixItems": [
+            {
+              "description": "The first build step. It has no previous step, so flatIfRepeated is omitted. null is not a value.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["build", "change", "basis"],
+              "properties": {
+                "build": {
+                  "$ref": "#/$defs/reading"
+                },
+                "change": {
+                  "$ref": "#/$defs/reading"
+                },
+                "basis": {
+                  "const": "inferred"
+                }
+              }
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/escalationStep"
+          }
+        },
+        "payoff": {
+          "description": "The second the opening claim is paid off, what the viewer can then point at, and anticipation, hit, and settle as three different beats. paidOffAtSec falls inside beats.hit. A label with no on-screen change does not satisfy onScreen. null is not a value.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["paidOffAtSec", "pointAt", "beats", "basis"],
+          "properties": {
+            "paidOffAtSec": {
+              "type": "number",
+              "minimum": 0
+            },
+            "pointAt": {
+              "$ref": "#/$defs/reading"
+            },
+            "beats": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["anticipation", "hit", "settle"],
+              "properties": {
+                "anticipation": {
+                  "$ref": "#/$defs/payoffBeat"
+                },
+                "hit": {
+                  "$ref": "#/$defs/payoffBeat"
+                },
+                "settle": {
+                  "$ref": "#/$defs/payoffBeat"
+                }
+              }
+            },
+            "basis": {
+              "const": "inferred"
+            }
+          }
+        },
+        "comment": {
+          "description": "The beat that leaves a procedure unfinished or a claim arguable, and the reply it invites. When closed is true, the beat is already closed and reply is omitted. count is words: that a count was not fetched, or a count that was handed in with its source. An invented count is not a value. null is not a value.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["beat", "closed", "count", "basis"],
+          "properties": {
+            "beat": {
+              "$ref": "#/$defs/reading"
+            },
+            "closed": {
+              "type": "boolean"
+            },
+            "reply": {
+              "$ref": "#/$defs/reading"
+            },
+            "count": {
+              "$ref": "#/$defs/reading"
+            },
+            "basis": {
+              "const": "inferred"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "closed": {
+                    "const": true
+                  }
+                },
+                "required": ["closed"]
+              },
+              "then": {
+                "not": {
+                  "required": ["reply"]
+                }
+              },
+              "else": {
+                "required": ["reply"]
+              }
+            }
+          ]
+        },
+        "share": {
+          "description": "What a sender can point at, who they send it to, and why a middle step with no name is not a share.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pointAt", "recipient", "unnamedMiddle", "basis"],
+          "properties": {
+            "pointAt": {
+              "$ref": "#/$defs/reading"
+            },
+            "recipient": {
+              "$ref": "#/$defs/reading"
+            },
+            "unnamedMiddle": {
+              "$ref": "#/$defs/reading"
+            },
+            "basis": {
+              "const": "inferred"
+            }
+          }
+        },
+        "leave": {
+          "description": "Four moments, in order: first second, repeated step, unnamed word, ending. basis is inferred.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "firstSecond",
+            "repeatedStep",
+            "unnamedWord",
+            "ending",
+            "basis"
+          ],
+          "properties": {
+            "firstSecond": {
+              "description": "One leave moment. stalls is the flag. When stalls is false, stays is the line that this moment does not make the viewer leave, and mechanism and trigger are left out. When true, mechanism and trigger are the two sentences. null is not a value.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["stalls"],
+              "properties": {
+                "stalls": {
+                  "type": "boolean"
+                },
+                "mechanism": {
+                  "$ref": "#/$defs/reading"
+                },
+                "trigger": {
+                  "$ref": "#/$defs/reading"
+                },
+                "stays": {
+                  "$ref": "#/$defs/reading"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "stalls": {
+                        "const": true
+                      }
+                    },
+                    "required": ["stalls"]
+                  },
+                  "then": {
+                    "required": ["mechanism", "trigger"],
+                    "not": {
+                      "required": ["stays"]
+                    }
+                  },
+                  "else": {
+                    "required": ["stays"],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": ["mechanism"]
+                        },
+                        {
+                          "required": ["trigger"]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "repeatedStep": {
+              "description": "One leave moment. repeats is the flag. When repeats is false, stays is the line that this moment does not make the viewer leave, and mechanism and trigger are left out. When true, mechanism and trigger are the two sentences. null is not a value.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["repeats"],
+              "properties": {
+                "repeats": {
+                  "type": "boolean"
+                },
+                "mechanism": {
+                  "$ref": "#/$defs/reading"
+                },
+                "trigger": {
+                  "$ref": "#/$defs/reading"
+                },
+                "stays": {
+                  "$ref": "#/$defs/reading"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "repeats": {
+                        "const": true
+                      }
+                    },
+                    "required": ["repeats"]
+                  },
+                  "then": {
+                    "required": ["mechanism", "trigger"],
+                    "not": {
+                      "required": ["stays"]
+                    }
+                  },
+                  "else": {
+                    "required": ["stays"],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": ["mechanism"]
+                        },
+                        {
+                          "required": ["trigger"]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "unnamedWord": {
+              "description": "One leave moment. misses is the flag. When misses is false, stays is the line that this moment does not make the viewer leave, and mechanism and trigger are left out. When true, mechanism and trigger are the two sentences. null is not a value.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["misses"],
+              "properties": {
+                "misses": {
+                  "type": "boolean"
+                },
+                "mechanism": {
+                  "$ref": "#/$defs/reading"
+                },
+                "trigger": {
+                  "$ref": "#/$defs/reading"
+                },
+                "stays": {
+                  "$ref": "#/$defs/reading"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "misses": {
+                        "const": true
+                      }
+                    },
+                    "required": ["misses"]
+                  },
+                  "then": {
+                    "required": ["mechanism", "trigger"],
+                    "not": {
+                      "required": ["stays"]
+                    }
+                  },
+                  "else": {
+                    "required": ["stays"],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": ["mechanism"]
+                        },
+                        {
+                          "required": ["trigger"]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "ending": {
+              "description": "One leave moment. mismatches is the flag. When mismatches is false, stays is the line that this moment does not make the viewer leave, and mechanism and trigger are left out. When true, mechanism and trigger are the two sentences. null is not a value.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mismatches"],
+              "properties": {
+                "mismatches": {
+                  "type": "boolean"
+                },
+                "mechanism": {
+                  "$ref": "#/$defs/reading"
+                },
+                "trigger": {
+                  "$ref": "#/$defs/reading"
+                },
+                "stays": {
+                  "$ref": "#/$defs/reading"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "mismatches": {
+                        "const": true
+                      }
+                    },
+                    "required": ["mismatches"]
+                  },
+                  "then": {
+                    "required": ["mechanism", "trigger"],
+                    "not": {
+                      "required": ["stays"]
+                    }
+                  },
+                  "else": {
+                    "required": ["stays"],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": ["mechanism"]
+                        },
+                        {
+                          "required": ["trigger"]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "basis": {
+              "const": "inferred"
+            }
+          }
+        }
+      }
+    },
+    "scenario": {
+      "description": "The story written after the verbalization files and the spread slices exist. Required when a beat has role payoff, the format meant to be watched to the end. Omit the object only when the format is not that story. Omitting it does not mean the analysis was skipped. null is not a value. story is prose. A shot-number list or a word list does not satisfy it. Empty and null do not satisfy it. make refuses to plan a cut when story is missing, empty, or null.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["story"],
+      "properties": {
+        "story": {
+          "$ref": "#/$defs/storyProse"
+        }
       }
     },
     "source": {
@@ -239,30 +1591,67 @@
       "additionalProperties": false,
       "required": ["kind", "platform", "rightsTier", "measuredFiles"],
       "properties": {
-        "kind": { "enum": ["ingested", "hand-written"] },
-        "platform": { "enum": ["instagram-reels", "tiktok", "youtube-shorts", "other", "none"] },
+        "kind": {
+          "enum": ["ingested", "hand-written"]
+        },
+        "platform": {
+          "enum": [
+            "instagram-reels",
+            "tiktok",
+            "youtube-shorts",
+            "other",
+            "none"
+          ]
+        },
         "rightsTier": {
           "description": "A own work, B licensed, C third-party public (analysis only), none for hand-written.",
           "enum": ["A", "B", "C", "none"]
         },
-        "ingestedAt": { "type": "string", "format": "date" },
-        "measuredFiles": { "type": "integer", "minimum": 0 },
+        "ingestedAt": {
+          "type": "string",
+          "format": "date"
+        },
+        "measuredFiles": {
+          "type": "integer",
+          "minimum": 0
+        },
         "reference": {
           "description": "What the reference showed, when it differs from the recipe. A talking-to-camera reference is recorded here, not in format.",
           "type": "object",
           "additionalProperties": false,
           "required": ["onCamera", "speech", "hardCuts"],
           "properties": {
-            "onCamera": { "enum": ["none", "hands", "body-no-face", "face"] },
-            "speech": { "enum": ["none", "voiceover", "on-camera"] },
-            "hardCuts": { "description": "null: unmeasured.", "type": ["integer", "null"], "minimum": 0 }
+            "onCamera": {
+              "enum": ["none", "hands", "body-no-face", "face"]
+            },
+            "speech": {
+              "enum": ["none", "voiceover", "on-camera"]
+            },
+            "hardCuts": {
+              "description": "null: unmeasured.",
+              "type": ["integer", "null"],
+              "minimum": 0
+            }
           }
         }
       },
-      "if": { "properties": { "kind": { "const": "ingested" } } },
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "ingested"
+          }
+        }
+      },
       "then": {
         "required": ["ingestedAt", "reference"],
-        "properties": { "measuredFiles": { "minimum": 1 }, "rightsTier": { "enum": ["A", "B", "C"] } }
+        "properties": {
+          "measuredFiles": {
+            "minimum": 1
+          },
+          "rightsTier": {
+            "enum": ["A", "B", "C"]
+          }
+        }
       }
     },
     "format": {
@@ -270,33 +1659,66 @@
       "additionalProperties": false,
       "required": ["aspect", "fps", "durationSec", "onCamera", "speech"],
       "properties": {
-        "aspect": { "enum": ["9:16", "4:5", "1:1", "16:9"] },
-        "fps": { "type": "number", "exclusiveMinimum": 0 },
+        "aspect": {
+          "enum": ["9:16", "4:5", "1:1", "16:9"]
+        },
+        "fps": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "durationSec": {
           "type": "object",
           "additionalProperties": false,
           "required": ["min", "max"],
           "properties": {
-            "min": { "type": "number", "exclusiveMinimum": 0 },
-            "max": { "type": "number", "exclusiveMinimum": 0 },
-            "reference": { "description": "Length of the timeline that beat times are written on.", "type": "number", "exclusiveMinimum": 0 }
+            "min": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "max": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "reference": {
+              "description": "Length of the timeline that beat times are written on.",
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           }
         },
         "onCamera": {
           "description": "How a person appears in the made cut. A face is never part of the default recipe.",
           "enum": ["none", "hands", "body-no-face"]
         },
-        "speech": { "enum": ["none", "voiceover"] },
+        "speech": {
+          "enum": ["none", "voiceover"]
+        },
         "safeArea": {
           "description": "Margins kept clear of platform UI, as fractions of frame size.",
           "type": "object",
           "additionalProperties": false,
           "required": ["top", "bottom", "left", "right"],
           "properties": {
-            "top": { "type": "number", "minimum": 0, "maximum": 0.5 },
-            "bottom": { "type": "number", "minimum": 0, "maximum": 0.5 },
-            "left": { "type": "number", "minimum": 0, "maximum": 0.5 },
-            "right": { "type": "number", "minimum": 0, "maximum": 0.5 }
+            "top": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5
+            },
+            "bottom": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5
+            },
+            "left": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5
+            },
+            "right": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5
+            }
           }
         }
       }
@@ -320,7 +1742,9 @@
             "other"
           ]
         },
-        "firstFrameHasText": { "type": "boolean" }
+        "firstFrameHasText": {
+          "type": "boolean"
+        }
       }
     },
     "beats": {
@@ -331,22 +1755,59 @@
         "additionalProperties": false,
         "required": ["id", "role", "tIn", "tOut", "purpose", "swap"],
         "properties": {
-          "id": { "$ref": "#/$defs/beatId" },
-          "role": { "enum": ["hook", "setup", "item", "turn", "payoff", "cta", "loop", "pause"] },
-          "tIn": { "type": "number", "minimum": 0 },
-          "tOut": { "type": "number", "exclusiveMinimum": 0 },
-          "purpose": { "description": "What the beat does for the viewer. No source wording.", "type": "string", "minLength": 1 },
-          "swap": { "description": "What the maker puts here from their own content.", "type": "string", "minLength": 1 }
+          "id": {
+            "$ref": "#/$defs/beatId"
+          },
+          "role": {
+            "enum": [
+              "hook",
+              "setup",
+              "item",
+              "turn",
+              "payoff",
+              "cta",
+              "loop",
+              "pause"
+            ]
+          },
+          "tIn": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tOut": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "purpose": {
+            "description": "What the beat does for the viewer. No source wording.",
+            "type": "string",
+            "minLength": 1
+          },
+          "swap": {
+            "description": "What the maker puts here from their own content.",
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
-      "contains": { "type": "object", "properties": { "role": { "const": "hook" } }, "required": ["role"] },
+      "contains": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "const": "hook"
+          }
+        },
+        "required": ["role"]
+      },
       "minContains": 1,
       "maxContains": 1
     },
     "captions": {
       "description": "Caption layers. An empty array means the format has no captions.",
       "type": "array",
-      "items": { "$ref": "#/$defs/captionLayer" }
+      "items": {
+        "$ref": "#/$defs/captionLayer"
+      }
     },
     "camera": {
       "type": "object",
@@ -361,8 +1822,20 @@
             "additionalProperties": false,
             "required": ["beat", "move"],
             "properties": {
-              "beat": { "$ref": "#/$defs/beatId" },
-              "move": { "enum": ["static", "handheld", "push-in", "pull-out", "pan", "tilt", "orbit"] }
+              "beat": {
+                "$ref": "#/$defs/beatId"
+              },
+              "move": {
+                "enum": [
+                  "static",
+                  "handheld",
+                  "push-in",
+                  "pull-out",
+                  "pan",
+                  "tilt",
+                  "orbit"
+                ]
+              }
             }
           }
         },
@@ -373,11 +1846,24 @@
             "additionalProperties": false,
             "required": ["at", "scaleFrom", "scaleTo", "durSec", "easing"],
             "properties": {
-              "at": { "$ref": "#/$defs/at" },
-              "scaleFrom": { "type": "number", "exclusiveMinimum": 0 },
-              "scaleTo": { "type": "number", "exclusiveMinimum": 0 },
-              "durSec": { "type": "number", "minimum": 0 },
-              "easing": { "enum": ["linear", "ease-in", "ease-out", "ease-in-out", "snap"] }
+              "at": {
+                "$ref": "#/$defs/at"
+              },
+              "scaleFrom": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "scaleTo": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "durSec": {
+                "type": "number",
+                "minimum": 0
+              },
+              "easing": {
+                "enum": ["linear", "ease-in", "ease-out", "ease-in-out", "snap"]
+              }
             }
           }
         },
@@ -388,8 +1874,19 @@
             "additionalProperties": false,
             "required": ["at", "type"],
             "properties": {
-              "at": { "$ref": "#/$defs/at" },
-              "type": { "enum": ["hard-cut", "whip", "zoom-cut", "fade", "match-cut", "glitch"] }
+              "at": {
+                "$ref": "#/$defs/at"
+              },
+              "type": {
+                "enum": [
+                  "hard-cut",
+                  "whip",
+                  "zoom-cut",
+                  "fade",
+                  "match-cut",
+                  "glitch"
+                ]
+              }
             }
           }
         }
@@ -405,21 +1902,50 @@
           "additionalProperties": false,
           "required": ["present"],
           "properties": {
-            "present": { "type": "boolean" },
-            "character": { "description": "Mood and tempo in words. Never a track title.", "type": "string" },
-            "entersAt": { "$ref": "#/$defs/at" },
-            "duckUnderVoice": { "description": "Whether BGM drops under the voice. null: unmeasured. Leave it out when there is no voice or no BGM.", "type": ["boolean", "null"] },
-            "levelDbUnderVoice": { "description": "BGM RMS minus voice RMS in dB. null: unmeasured. Leave it out when there is no voice or no BGM.", "type": ["number", "null"] }
+            "present": {
+              "type": "boolean"
+            },
+            "character": {
+              "description": "Mood and tempo in words. Never a track title.",
+              "type": "string"
+            },
+            "entersAt": {
+              "$ref": "#/$defs/at"
+            },
+            "duckUnderVoice": {
+              "description": "Whether BGM drops under the voice. null: unmeasured. Leave it out when there is no voice or no BGM.",
+              "type": ["boolean", "null"]
+            },
+            "levelDbUnderVoice": {
+              "description": "BGM RMS minus voice RMS in dB. null: unmeasured. Leave it out when there is no voice or no BGM.",
+              "type": ["number", "null"]
+            }
           },
-          "if": { "properties": { "present": { "const": true } } },
-          "then": { "required": ["character", "entersAt"] },
+          "if": {
+            "properties": {
+              "present": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": ["character", "entersAt"]
+          },
           "else": {
             "not": {
               "anyOf": [
-                { "required": ["character"] },
-                { "required": ["entersAt"] },
-                { "required": ["duckUnderVoice"] },
-                { "required": ["levelDbUnderVoice"] }
+                {
+                  "required": ["character"]
+                },
+                {
+                  "required": ["entersAt"]
+                },
+                {
+                  "required": ["duckUnderVoice"]
+                },
+                {
+                  "required": ["levelDbUnderVoice"]
+                }
               ]
             }
           }
@@ -431,14 +1957,33 @@
             "additionalProperties": false,
             "required": ["cue", "type"],
             "properties": {
-              "cue": { "description": "What triggers the sound. The key must not be on, which YAML 1.1 parses as true.", "enum": ["card-in", "cut", "zoom", "payoff", "beat-drop", "other"] },
-              "at": { "$ref": "#/$defs/at" },
-              "type": { "type": "string", "minLength": 1 }
+              "cue": {
+                "description": "What triggers the sound. The key must not be on, which YAML 1.1 parses as true.",
+                "enum": [
+                  "card-in",
+                  "cut",
+                  "zoom",
+                  "payoff",
+                  "beat-drop",
+                  "other"
+                ]
+              },
+              "at": {
+                "$ref": "#/$defs/at"
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         },
-        "voice": { "enum": ["none", "tts-voiceover", "own-voiceover"] },
-        "referenceAudioUsed": { "const": false }
+        "voice": {
+          "enum": ["none", "tts-voiceover", "own-voiceover"]
+        },
+        "referenceAudioUsed": {
+          "const": false
+        }
       }
     },
     "routes": {
@@ -447,69 +1992,227 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "default", "container", "needs", "paidApi", "talkingHead", "costUsdPerVideo", "status"],
+        "required": [
+          "id",
+          "default",
+          "container",
+          "needs",
+          "paidApi",
+          "talkingHead",
+          "costUsdPerVideo",
+          "status"
+        ],
         "properties": {
           "id": {
-            "enum": ["code-motion", "caption-over-footage", "screen-recording", "image-gen-stills", "t2v", "i2v", "v2v", "r2v-talking"]
+            "enum": [
+              "code-motion",
+              "caption-over-footage",
+              "screen-recording",
+              "image-gen-stills",
+              "t2v",
+              "i2v",
+              "v2v",
+              "r2v-talking"
+            ]
           },
-          "default": { "type": "boolean" },
-          "container": { "enum": ["ffmpeg-ass", "remotion", "hyperframes", "three-js", "html-canvas", "capcut", "other"] },
+          "default": {
+            "type": "boolean"
+          },
+          "container": {
+            "enum": [
+              "ffmpeg-ass",
+              "remotion",
+              "hyperframes",
+              "three-js",
+              "html-canvas",
+              "capcut",
+              "other"
+            ]
+          },
           "needs": {
             "oneOf": [
-              { "type": "array", "items": { "const": "none" }, "minItems": 1, "maxItems": 1 },
+              {
+                "type": "array",
+                "items": {
+                  "const": "none"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
               {
                 "type": "array",
                 "minItems": 1,
                 "uniqueItems": true,
                 "items": {
-                  "enum": ["image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync", "tts", "screen-capture", "own-footage", "stock-footage"]
+                  "enum": [
+                    "image-gen",
+                    "t2v",
+                    "i2v",
+                    "v2v",
+                    "r2v",
+                    "lipsync",
+                    "tts",
+                    "screen-capture",
+                    "own-footage",
+                    "stock-footage"
+                  ]
                 }
               }
             ]
           },
-          "paidApi": { "type": "boolean" },
-          "talkingHead": { "type": "boolean" },
+          "paidApi": {
+            "type": "boolean"
+          },
+          "talkingHead": {
+            "type": "boolean"
+          },
           "costUsdPerVideo": {
             "type": "object",
             "additionalProperties": false,
             "required": ["min", "max", "basis"],
             "properties": {
-              "min": { "type": "number", "minimum": 0 },
-              "max": { "type": "number", "minimum": 0 },
-              "basis": { "type": "string", "minLength": 1 },
-              "asOf": { "type": "string", "format": "date" }
+              "min": {
+                "type": "number",
+                "minimum": 0
+              },
+              "max": {
+                "type": "number",
+                "minimum": 0
+              },
+              "basis": {
+                "type": "string",
+                "minLength": 1
+              },
+              "asOf": {
+                "type": "string",
+                "format": "date"
+              }
             }
           },
-          "status": { "enum": ["design-only", "written", "tested"] }
+          "status": {
+            "enum": ["design-only", "written", "tested"]
+          }
         },
         "allOf": [
           {
-            "if": { "properties": { "id": { "const": "r2v-talking" } } },
-            "then": { "properties": { "talkingHead": { "const": true } } }
+            "if": {
+              "properties": {
+                "id": {
+                  "const": "r2v-talking"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "talkingHead": {
+                  "const": true
+                }
+              }
+            }
           },
           {
-            "if": { "properties": { "needs": { "contains": { "enum": ["r2v", "lipsync"] } } } },
-            "then": { "properties": { "talkingHead": { "const": true } } }
+            "if": {
+              "properties": {
+                "needs": {
+                  "contains": {
+                    "enum": ["r2v", "lipsync"]
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "talkingHead": {
+                  "const": true
+                }
+              }
+            }
           },
           {
-            "if": { "properties": { "talkingHead": { "const": true } } },
-            "then": { "properties": { "default": { "const": false } } }
+            "if": {
+              "properties": {
+                "talkingHead": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "default": {
+                  "const": false
+                }
+              }
+            }
           },
           {
-            "if": { "properties": { "needs": { "contains": { "enum": ["image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync"] } } } },
-            "then": { "properties": { "paidApi": { "const": true } }, "required": ["costUsdPerVideo"] }
+            "if": {
+              "properties": {
+                "needs": {
+                  "contains": {
+                    "enum": ["image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync"]
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "paidApi": {
+                  "const": true
+                }
+              },
+              "required": ["costUsdPerVideo"]
+            }
           },
           {
-            "if": { "properties": { "paidApi": { "const": false } } },
-            "then": { "properties": { "costUsdPerVideo": { "properties": { "min": { "const": 0 }, "max": { "const": 0 } } } } }
+            "if": {
+              "properties": {
+                "paidApi": {
+                  "const": false
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "costUsdPerVideo": {
+                  "properties": {
+                    "min": {
+                      "const": 0
+                    },
+                    "max": {
+                      "const": 0
+                    }
+                  }
+                }
+              }
+            }
           },
           {
-            "if": { "properties": { "paidApi": { "const": true } } },
-            "then": { "properties": { "costUsdPerVideo": { "required": ["asOf"] } } }
+            "if": {
+              "properties": {
+                "paidApi": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "costUsdPerVideo": {
+                  "required": ["asOf"]
+                }
+              }
+            }
           }
         ]
       },
-      "contains": { "type": "object", "properties": { "default": { "const": true } }, "required": ["default"] },
+      "contains": {
+        "type": "object",
+        "properties": {
+          "default": {
+            "const": true
+          }
+        },
+        "required": ["default"]
+      },
       "minContains": 1,
       "maxContains": 1
     },
@@ -520,9 +2223,19 @@
         "additionalProperties": false,
         "required": ["family", "license", "source"],
         "properties": {
-          "family": { "type": "string", "minLength": 1 },
-          "license": { "description": "SPDX id when one exists, such as OFL-1.1.", "type": "string", "minLength": 1 },
-          "source": { "type": "string", "format": "uri" }
+          "family": {
+            "type": "string",
+            "minLength": 1
+          },
+          "license": {
+            "description": "SPDX id when one exists, such as OFL-1.1.",
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "format": "uri"
+          }
         }
       }
     },
@@ -534,11 +2247,17 @@
         "makerSupplies": {
           "description": "Assets the maker must hold rights to before making a cut.",
           "type": "array",
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "neverUse": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "minItems": 1
         }
       }
@@ -549,34 +2268,126 @@
       "additionalProperties": false,
       "required": ["measured", "inferred", "unmeasured"],
       "properties": {
-        "measured": { "type": "array", "items": { "type": "string" } },
-        "inferred": { "type": "array", "items": { "type": "string" } },
-        "unmeasured": { "type": "array", "items": { "type": "string" } }
+        "measured": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inferred": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unmeasured": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "status": { "enum": ["measured", "produced"] } } },
-      "then": { "properties": { "evidence": { "properties": { "measured": { "minItems": 1 } } } } }
+      "if": {
+        "properties": {
+          "status": {
+            "enum": ["measured", "produced"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "evidence": {
+            "properties": {
+              "measured": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
     },
     {
-      "if": { "properties": { "captions": { "minItems": 1 } } },
-      "then": { "properties": { "fonts": { "minItems": 1 } } }
+      "if": {
+        "properties": {
+          "captions": {
+            "minItems": 1
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "fonts": {
+            "minItems": 1
+          }
+        }
+      }
     },
     {
-      "if": { "properties": { "contentRoute": { "const": "moguno" } }, "required": ["contentRoute"] },
-      "then": { "properties": { "subject": { "properties": { "of": { "const": "moguno" } } } } }
+      "if": {
+        "properties": {
+          "contentRoute": {
+            "const": "moguno"
+          }
+        },
+        "required": ["contentRoute"]
+      },
+      "then": {
+        "properties": {
+          "subject": {
+            "properties": {
+              "of": {
+                "const": "moguno"
+              }
+            }
+          }
+        }
+      }
     },
     {
-      "if": { "properties": { "contentRoute": { "enum": ["reference-world", "in-world"] } }, "required": ["contentRoute"] },
-      "then": { "properties": { "subject": { "properties": { "of": { "const": "reference-world" } } } } }
+      "if": {
+        "properties": {
+          "contentRoute": {
+            "enum": ["reference-world", "in-world"]
+          }
+        },
+        "required": ["contentRoute"]
+      },
+      "then": {
+        "properties": {
+          "subject": {
+            "properties": {
+              "of": {
+                "const": "reference-world"
+              }
+            }
+          }
+        }
+      }
     },
     {
-      "if": { "properties": { "contentRoute": { "const": "in-world" } }, "required": ["contentRoute"] },
+      "if": {
+        "properties": {
+          "contentRoute": {
+            "const": "in-world"
+          }
+        },
+        "required": ["contentRoute"]
+      },
       "then": {
         "required": ["productPlacement"],
-        "properties": { "productPlacement": { "properties": { "role": { "const": "prop" } } } }
+        "properties": {
+          "productPlacement": {
+            "properties": {
+              "role": {
+                "const": "prop"
+              }
+            }
+          }
+        }
       }
     },
     {
@@ -585,14 +2396,41 @@
           "beats": {
             "contains": {
               "type": "object",
-              "properties": { "role": { "const": "payoff" } },
+              "properties": {
+                "role": {
+                  "const": "payoff"
+                }
+              },
               "required": ["role"]
             }
           }
         },
         "required": ["beats"]
       },
-      "then": { "required": ["spreadPsychology"] }
+      "then": {
+        "required": ["spreadPsychology"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "beats": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "const": "payoff"
+                }
+              },
+              "required": ["role"]
+            }
+          }
+        },
+        "required": ["beats"]
+      },
+      "then": {
+        "required": ["verbalization", "spread", "scenario"]
+      }
     }
   ]
 }

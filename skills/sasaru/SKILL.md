@@ -39,6 +39,8 @@ sasaru は、流行っているショート動画の型を playbook として残
 - 投稿、予約、アカウントの操作。
 - 四つの役のどれにも合わない依頼。五つ目の役は開かない。
 - 役の SKILL.md の本文が「未執筆」のとき。その役は未実装と返す。
+- 最後まで見る型で、下の十四の読みが揃う前に make を開くこと。欄を省いて分析を飛ばさない。
+- `scenario.story` が空、無い、`null`、ショット番号の一覧、または単語の一覧のとき。make はカットの計画を書かない。
 
 既定にしないもの。人がカメラに向かって喋るルート（**sasaru-principle-no-talking-head-by-default**）。商品の説明動画と、書いていないエンドカード。商品をどこに出すかはアカウントの型が決め、一本のリールでは動かさない。
 
@@ -74,6 +76,29 @@ pick の `scripts/pick.py` と make の `scripts/plan.py` は、この入口と�
 - 戻り: JSON の `ok`、`errors`、`spreadPsychology`。最後まで見ることが仕事ではない型は `{"watchToEnd": false}`。終了コードは 0 合格、2 入力の誤り、3 不合格。
 
 pick の `scripts/pick.py` と make の `scripts/plan.py` は、この入口と同じ `check_spread` を呼ぶ。合格しない playbook は選ばず、計画も書かない。
+
+## 最後まで見る型
+
+四つの役は変えない。ここから先は五つめの役ではない。`payoff` のビートがある型は、最後まで見る物語なので、make の前に次の十四をこの順で読む。各ファイルを全文読んでから、その欄だけを書く。プラグインの中に、この十四のディレクトリは作らない。本文が無い段は未実装と返し、次の段にも make にも飛ばない。飛ばした省略は分析ではない。
+
+`payoff` が無い型では、`verbalization`、`spread`、`scenario` を書かなくてよい。その省略は、最後まで見る物語ではない、という意味である。分析を飛ばした印ではない。`null` は書かない。
+
+1. `sasaru-verbalize-picture`。`verbalization.picture`。下書き `<home>/work/<id>/<id>.md` が無いときは playbook を新しく作らず、下書きが無いと返して止まる。0 秒から、尺を超えない最後の整数秒まで、一秒も飛ばさない。各秒は画面、出入り、見えたカメラ、指させるもの。0 秒の出入りは「なし」。見た動きは `seen.camera` で、止まっている、大きくなった、小さくなった、横へ流れた、縦へ流れた、揺れた、別の画に切り替わった、のどれか。操作名や機材の推測は `inferred.camera` にだけ書き、推測が無ければその鍵は書かない。指の先が無ければ `pointAt` は「決められない」。画面の字、声、看板、作者名、アカウント名、題は写さない。一語の引用もしない。この手順は `evidence` を動かさない。`picture.md` は先に作らない。
+2. `sasaru-verbalize-edit`。`verbalization.edit`。時間順にカット、ホールド、ズーム、トランジション。ホールドは見た始点から見た終点までの長さで、途中のズームはその長さに畳まない。ズームは始点、終点、寄るか引くか、その長さ。つなぎは `whip`、`zoom-cut`、`fade`、`match-cut`、`glitch` のどれかで、フレームにそれが出ているときだけ。一フレームの境界はカットで、つなぎに混ぜない。カットの仕事は「ジャンプを隠す」か「新しい段を開く」か「決められない」の一つ。絵の中身は書かない。`seen` はフレームを指せた秒で、`evidence.measured` には入れない。開けないファイルは `missing` に名前だけ書き、その本の出来事は書かない。`edit.md` は、動画が開けてからこの手順が書く。先に作らない。
+3. `sasaru-verbalize-words`。出力は `words.md` で、これが `verbalization.words` である。playbook の区間に元の字は書かない。綴りの鍵は無い。欠ける動画は名前だけ残し、その動画の語は書かない。欠ける動画が無ければ missing は空で、見出しは「なし」。区間は、出る秒と消える秒が決まっている語だけ。重なっている語は別区間。消えずに残る語は割らない。消えてまた出たら別区間。役は「終状態の名前」「手順」「喝」「なし」の一つで、推論である。芯の高さと中心は、測った比か「未計測」。目の印象をその数に混ぜない。定数で埋めない。ショット一覧ではない。`words.md` は、この手順が書く。先に作らない。
+4. `sasaru-verbalize-sound`。`verbalization.sound`。入りと落ち、`hit` / `bed` / `voice` / `silence`。ヒットの同期、無音が回収の前の溜めか。歌詞も曲名も写さない。`sound.md` は、この手順が書く。先に作らない。
+5. `sasaru-verbalize-pull`。`verbalization.pull`。ビートごとに、次に見たいもの、まだ開いている約束、外れたら離れる秒。出どころは `inferred`。動画が無いフォルダの `pull.md` は推測で埋めない。
+6. `sasaru-verbalize-account`。`verbalization.accountPattern`。`picture.md`、`edit.md`、`words.md`、`sound.md`、`pull.md` が揃い、区別できる動画が二本以上あるときだけ。一本のショット一覧では書かない。揃う前に `account-pattern.md` を作らない。記憶で型を補わない。
+7. `sasaru-spread-open`。`spread.open`。最初の三秒の主張、終状態の語が画面にあるか、冒頭がハウツーか。`howTo` が真ならこの流れは不合格で、読みは残す。`basis` は `inferred`。`open.md` は、この手順が書く。先に作らない。
+8. `sasaru-spread-lock`。`spread.lock`。止められている通常の手順、その秒、直線の what-if が失敗する理由。`lock.md` は、この手順が書く。先に作らない。
+9. `sasaru-spread-escalation`。`spread.escalation`。積みの列。最初の段に `flatIfRepeated` は無い。一語の形容詞では閉じない。`escalation.md` は、この手順が書く。先に作らない。
+10. `sasaru-spread-payoff`。`spread.payoff`。回収の秒、指させるもの、待ち・当たり・着地。変化の無い名前だけは不合格。`payoff.md` は、この手順が書く。先に作らない。
+11. `sasaru-spread-comment`。`spread.comment`。返信を招く拍と、招く返信。閉じている拍に返信の種類は作らない。取得していないコメント数は作らない。`comment.md` は、この手順が書く。先に作らない。
+12. `sasaru-spread-share`。`spread.share`。指させる物、送る相手、名前の無い途中。`share.md` は、この手順が書く。先に作らない。
+13. `sasaru-spread-leave`。`spread.leave`。最初の一秒、同じ手順、名指ししない語、終わりが主張と違うか。`leave.md` は、この手順が書く。先に作らない。
+14. `sasaru-scenario`。`scenario.story`。言語化の六ファイルと、開きを含む切れが揃ったあとだけ。散文で、人が言い直せる。ショット番号の一覧でも、単語の一覧でもない。ハウツーの開きは写さない。揃う前に `scenario.story` も `docs/bridge-scenario-v2.md` も作らない。記憶で物語を書かない。
+
+make は `scripts/plan.py` がスキーマを読んでから計画を書く。`scenario.story` が空、無い、`null`、ショット番号の一覧、単語の一覧なら、計画は書かない。
 
 ## Principles
 
