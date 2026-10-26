@@ -110,6 +110,24 @@
         }
       ]
     },
+    "accountProse": {
+      "description": "Role language for an account pattern. A shot list, a seconds table, a word list, or a view count does not satisfy it. A source sentence is not a property.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/storyProse"
+        },
+        {
+          "not": {
+            "pattern": "(?:^|\\n)\\s*\\d+(?:\\.\\d+)?\\s*秒\\s*[:：|]"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|\\n)\\s*\\|"
+          }
+        }
+      ]
+    },
     "pictureSecond": {
       "description": "One second of verbalization.picture. seen is what was on the frame. inferred.pointAt is what a viewer could point at, or 決められない. inferred.camera is an operation or gear guess and is omitted when there is no guess. seen.camera is the visible motion, not that guess. Do not put source sentences, titles, or names in either. This reading does not write evidence.",
       "type": "object",
@@ -594,7 +612,7 @@
       }
     },
     "accountPattern": {
-      "description": "What repeats across more than one video from the same account, what does not, and the story machine in prose. A shot list of one reel does not satisfy it. null is not a value. Written only after picture, edit, words, sound, and pull exist.",
+      "description": "What repeats across more than one video from the same account, what does not, and the story machine in prose. A shot list, a seconds table, or a view count does not satisfy it. null is not a value. Written only after picture, edit, words, sound, and pull exist for more than one video.",
       "type": "object",
       "additionalProperties": false,
       "required": ["繰り返すところ", "繰り返さないところ", "物語の機械"],
@@ -605,24 +623,24 @@
           "required": ["冒頭", "不可能な制約", "エスカレーション", "回収"],
           "properties": {
             "冒頭": {
-              "$ref": "#/$defs/storyProse"
+              "$ref": "#/$defs/accountProse"
             },
             "不可能な制約": {
-              "$ref": "#/$defs/storyProse"
+              "$ref": "#/$defs/accountProse"
             },
             "エスカレーション": {
-              "$ref": "#/$defs/storyProse"
+              "$ref": "#/$defs/accountProse"
             },
             "回収": {
-              "$ref": "#/$defs/storyProse"
+              "$ref": "#/$defs/accountProse"
             }
           }
         },
         "繰り返さないところ": {
-          "$ref": "#/$defs/storyProse"
+          "$ref": "#/$defs/accountProse"
         },
         "物語の機械": {
-          "$ref": "#/$defs/storyProse"
+          "$ref": "#/$defs/accountProse"
         }
       }
     },

@@ -88,7 +88,7 @@ pick の `scripts/pick.py` と make の `scripts/plan.py` は、この入口と�
 3. `sasaru-verbalize-words`。出力は `words.md` で、これが `verbalization.words` である。playbook の区間に元の字は書かない。綴りの鍵は無い。欠ける動画は名前だけ残し、その動画の語は書かない。欠ける動画が無ければ missing は空で、見出しは「なし」。区間は、出る秒と消える秒が決まっている語だけ。重なっている語は別区間。消えずに残る語は割らない。消えてまた出たら別区間。役は「終状態の名前」「手順」「喝」「なし」の一つで、推論である。芯の高さと中心は、測った比か「未計測」。目の印象をその数に混ぜない。定数で埋めない。ショット一覧ではない。`words.md` は、この手順が書く。先に作らない。
 4. `sasaru-verbalize-sound`。`verbalization.sound`。入りと落ち、`hit` / `bed` / `voice` / `silence`。ヒットの同期、無音が回収の前の溜めか。歌詞も曲名も写さない。`sound.md` は、この手順が書く。先に作らない。
 5. `sasaru-verbalize-pull`。`verbalization.pull`。ビートごとに、次に見たいもの、まだ開いている約束、外れたら離れる秒。出どころは `inferred`。動画が無いフォルダの `pull.md` は推測で埋めない。
-6. `sasaru-verbalize-account`。`verbalization.accountPattern`。`picture.md`、`edit.md`、`words.md`、`sound.md`、`pull.md` が揃い、区別できる動画が二本以上あるときだけ。一本のショット一覧では書かない。揃う前に `account-pattern.md` を作らない。記憶で型を補わない。
+6. `sasaru-verbalize-account`。出力は `account-pattern.md` で、これが `verbalization.accountPattern` である。読むのは同じディレクトリの `picture.md`、`edit.md`、`words.md`、`sound.md`、`pull.md` だけ。五つが揃い、区別できる動画が二本以上あるときだけ書く。揃っていない、動画が一本、どれかが一本のショット一覧、のどれかなら作らない。別のアカウントの言語化も記憶も使わない。見出しは「繰り返すところ」の「冒頭」「不可能な制約」「エスカレーション」「回収」、それから「繰り返さないところ」と「物語の機械」。元の文は写さない。秒の表にもショットの一覧にもしない。出どころは推論で、測った再生数ではない。失敗した一覧を書いたら、その `account-pattern.md` だけを消して、揃う前の止まりに戻る。先に作らない。
 7. `sasaru-spread-open`。`spread.open`。最初の三秒の主張、終状態の語が画面にあるか、冒頭がハウツーか。`howTo` が真ならこの流れは不合格で、読みは残す。`basis` は `inferred`。`open.md` は、この手順が書く。先に作らない。
 8. `sasaru-spread-lock`。`spread.lock`。止められている通常の手順、その秒、直線の what-if が失敗する理由。`lock.md` は、この手順が書く。先に作らない。
 9. `sasaru-spread-escalation`。`spread.escalation`。積みの列。最初の段に `flatIfRepeated` は無い。一語の形容詞では閉じない。`escalation.md` は、この手順が書く。先に作らない。

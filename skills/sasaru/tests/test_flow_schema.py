@@ -7,6 +7,8 @@
 verbalization.picture and verbalization.words follow their procedures:
 second 0 has no enter or leave, an undecided point is 決められない, and an
 unmeasured word box is 未計測 rather than a constant or a copied glyph.
+verbalization.accountPattern keeps the account headings and rejects a shot
+list, a seconds table, a view count, a source-text key, and null.
 """
 
 from __future__ import annotations
@@ -170,6 +172,43 @@ def main() -> int:
     glyph = copy.deepcopy(base)
     glyph["verbalization"]["words"]["intervals"][0]["text"] = "橋"
     if not expect_schema(glyph, False, "copied glyph"):
+        return 1
+
+    pattern = base["verbalization"]["accountPattern"]
+    shot_list = copy.deepcopy(base)
+    shot_list["verbalization"]["accountPattern"]["物語の機械"] = (
+        "1. 完成の名前を先に置く。\n2. 普通の一手を止める。\n3. ほどけた完成を残す。\n"
+    )
+    if not expect_schema(shot_list, False, "account pattern shot list"):
+        return 1
+
+    seconds = copy.deepcopy(base)
+    seconds["verbalization"]["accountPattern"]["物語の機械"] = (
+        "0秒: 完成の名前を置く。\n1秒: 普通の一手を止める。\n2秒: ほどけた完成を残す。\n"
+    )
+    if not expect_schema(seconds, False, "account pattern seconds table"):
+        return 1
+
+    views = copy.deepcopy(base)
+    views["verbalization"]["accountPattern"]["繰り返さないところ"] = (
+        "本ごとに変わるのは物の種類だけである。再生数は測っていないので、型の根拠にはしない。"
+    )
+    if not expect_schema(views, False, "account pattern view count"):
+        return 1
+
+    missing_open = copy.deepcopy(base)
+    del missing_open["verbalization"]["accountPattern"]["繰り返すところ"]["冒頭"]
+    if not expect_schema(missing_open, False, "account pattern missing opening"):
+        return 1
+
+    copied_line = copy.deepcopy(base)
+    copied_line["verbalization"]["accountPattern"]["text"] = pattern["物語の機械"]
+    if not expect_schema(copied_line, False, "account pattern source key"):
+        return 1
+
+    nulled = copy.deepcopy(base)
+    nulled["verbalization"]["accountPattern"] = None
+    if not expect_schema(nulled, False, "null account pattern"):
         return 1
 
     absent = copy.deepcopy(base)
