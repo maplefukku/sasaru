@@ -61,6 +61,20 @@ sasaru は、流行っているショート動画の型を playbook として残
 
 pick の `scripts/pick.py` と make の `scripts/plan.py` は、この入口と同じ `check_placement` を呼ぶ。合格しない playbook は選ばず、計画も書かない。
 
+### check-spread-psychology
+
+型が再生・コメント・共有を得る理由を、三つの心理として読む。欄は playbook の `spreadPsychology`。`plays`、`comments`、`shares` のそれぞれに、心理の機構（`mechanism`）と、型の何がそれを起こすか（`trigger`）を言葉で書く。出どころは `basis: inferred`。再生数の主張ではない。`payoff` のビートがある型は、最後まで見ることが仕事なので、欄を省けない。`null` は書けない。
+
+- 名前: `check-spread-psychology`
+- いつ: playbook をライブラリに置く前。pick が型を読むとき。make が計画を書くとき。
+- 引数:
+  - `playbook`: playbook のファイル
+- 入口: `skills/sasaru-gate/scripts/check_spread.py` の `check_spread`
+- 起動: `uv run --script <プラグイン>/skills/sasaru-gate/scripts/check_spread.py --playbook <playbook.md>`
+- 戻り: JSON の `ok`、`errors`、`spreadPsychology`。最後まで見ることが仕事ではない型は `{"watchToEnd": false}`。終了コードは 0 合格、2 入力の誤り、3 不合格。
+
+pick の `scripts/pick.py` と make の `scripts/plan.py` は、この入口と同じ `check_spread` を呼ぶ。合格しない playbook は選ばず、計画も書かない。
+
 ## Principles
 
 原則を使うときは、そのリーフを全文読む。各行は、いつ効くか。

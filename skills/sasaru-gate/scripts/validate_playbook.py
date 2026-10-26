@@ -22,6 +22,7 @@ _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 from check_placement import check_placement  # noqa: E402
+from check_spread import check_spread  # noqa: E402
 
 FALLBACK_HEADINGS = [
     "構成と尺", "フック", "ビート", "テロップ", "カメラとトランジションとズーム", "BGM と効果音", "なぜ伸びるか",
@@ -367,6 +368,8 @@ def validate(fm, body, path=None, schema_path=None, template_path=None, work=Non
 
     for msg in check_placement(fm)["errors"]:
         errors.append(f"placement: {msg}")
+    for msg in check_spread(fm)["errors"]:
+        errors.append(f"spread: {msg}")
     return errors, warnings, wording
 
 

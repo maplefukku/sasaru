@@ -51,6 +51,7 @@ uv run --script <このスキルの絶対パス>/scripts/pick.py --brief sasaru/
 - 並べる順は、内容の一致、audience の一致（playbook に `audience` が無ければ 0）、playbook の状態（produced、measured、draft の順）、ルートの状態、費用、希望の尺との近さ、測った欄の数。
 - 内容の一致が 0.3 未満の型は選ばない（名指しのときを除く）。当て推量で選ぶより聞き返す。
 - 各 playbook を候補にする前に、道具 `check-product-placement` の `check_placement` を読む。不合格の型は `skipped` に載せ、選ばない。選んだ型の `productPlacement` を結果に出す。`{"slot": false}` は置き場が無いことで、エンドカードも説明動画も足さない。役割と直接さが書いてあるときも、その言葉のとおりで、書いていないエンドカードは足さない。
+- 同じ位置で、道具 `check-spread-psychology` の `check_spread` を読む。不合格の型は `skipped` に載せ、選ばない。選んだ型の `spreadPsychology` を結果に出す。`payoff` がある型で欄が無いもの、`null`、再生数の主張は選ばない。`{"watchToEnd": false}` は最後まで見ることが仕事ではない型で、再生数の主張ではない。
 - ブリーフの `content.kind` か `content.message` の主題が商品の説明なら、型を選ばずに `refused` を返す。
 
 ## Phase 2: 確かめる
@@ -72,6 +73,17 @@ uv run --script <このスキルの絶対パス>/scripts/pick.py --brief sasaru/
   - `content`: 渡さない。主題はブリーフの `content.kind` と `content.message`
 - 入口: `../sasaru-gate/scripts/check_placement.py` の `check_placement`。`scripts/pick.py` が呼ぶ
 - 戻り: `productPlacement`。置き場が無い型は `{"slot": false}`。説明動画と、書いていないエンドカードにはしない
+
+### check-spread-psychology
+
+ルーターの Tools と同じ道具。pick は選ぶ前に必ず読む。
+
+- 名前: `check-spread-psychology`
+- いつ: ライブラリの各 playbook を候補にする前。`check-product-placement` の直後。
+- 引数:
+  - `playbook`: その型のフロントマター
+- 入口: `../sasaru-gate/scripts/check_spread.py` の `check_spread`。`scripts/pick.py` が呼ぶ
+- 戻り: `spreadPsychology`。`payoff` が無い型で欄を省いたときは `{"watchToEnd": false}`。再生、コメント、共有は別の心理で、推論であり、再生数ではない
 
 ## Outputs
 

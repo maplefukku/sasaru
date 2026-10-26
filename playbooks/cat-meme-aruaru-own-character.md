@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: cat-meme-aruaru-own-character
 name: 猫ミーム合成のあるある（自前キャラ化）
 status: draft
@@ -17,6 +17,19 @@ contentRoute: reference-world
 subject:
   of: reference-world
   words: 自前のキャラが、学生生活のあるあるを場面ごとに切り替える
+spreadPsychology:
+  plays:
+    mechanism: 次の分類への予期。まだ出ていない側が、最後の拍まで残る
+    trigger: 時間軸か分類かが最初に分かり、一番強い落ちは最後の拍まで出さない
+    basis: inferred
+  comments:
+    mechanism: 自分はどの側かを一文で宣言する自己定位
+    trigger: 場面が類型で、見る人の位置を書き込む空欄になる
+    basis: inferred
+  shares:
+    mechanism: 相手の位置を当てにいく社会的な遊び
+    trigger: 一場面の字が短く、送った相手が自分の側を即答できる
+    basis: inferred
 source:
   kind: hand-written
   platform: youtube-shorts

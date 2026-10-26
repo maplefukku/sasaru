@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: screen-demo-voiceover
 name: 画面録画と読み上げ
 status: draft

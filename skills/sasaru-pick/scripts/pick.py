@@ -35,6 +35,17 @@ def load_placement():
     spec.loader.exec_module(mod)
     return mod
 
+
+def load_spread():
+    """The check-spread-psychology tool. Same function the gate script runs."""
+    import importlib.util
+
+    path = PLUGIN_ROOT / "skills" / "sasaru-gate" / "scripts" / "check_spread.py"
+    spec = importlib.util.spec_from_file_location("sasaru_check_spread", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
 NEEDS = {"image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync", "tts", "screen-capture", "own-footage", "stock-footage"}
 ASPECTS = {"9:16", "4:5", "1:1", "16:9"}
 VOICES = {"none", "tts-voiceover", "own-voiceover"}
@@ -121,7 +132,12 @@ def load_library(dirs: list[Path]):
             if not placed["ok"]:
                 skipped.append({"file": str(path), "reason": "商品の置き場: " + " / ".join(placed["errors"][:3])})
                 continue
+            spread = load_spread().check_spread(fm)
+            if not spread["ok"]:
+                skipped.append({"file": str(path), "reason": "再生・コメント・共有の心理: " + " / ".join(spread["errors"][:3])})
+                continue
             fm["_placement"] = placed["productPlacement"]
+            fm["_spread"] = spread["spreadPsychology"]
             pid = fm["id"]
             if pid != path.stem:
                 notes.append(f"{path}: id（{pid}）がファイル名と違う")
@@ -351,6 +367,7 @@ def candidate_view(c: dict) -> dict:
         "contentRoute": fm.get("contentRoute"),
         "subject": fm.get("subject"),
         "productPlacement": fm.get("_placement") or {"slot": False},
+        "spreadPsychology": fm.get("_spread") or {"watchToEnd": False},
         "route": route_view(c["route"], c["routeIsDefault"]),
     }
 
@@ -388,6 +405,14 @@ def reasons_for(c: dict, brief: dict, runner_up: dict | None) -> list[str]:
         )
     else:
         out.append("この型に商品の置き場は無い（productPlacement は省略）。エンドカードも説明動画も足さない")
+    sp = fm.get("_spread") or {"watchToEnd": False}
+    if sp.get("plays"):
+        out.append(
+            f"再生の心理は「{sp['plays'].get('mechanism')}」。型の引き金は「{sp['plays'].get('trigger')}」。"
+            "コメントと共有は別の機構で、三つとも推論であり、再生数の主張ではない"
+        )
+    else:
+        out.append("この型に payoff は無い。最後まで見ることが仕事ではないので spreadPsychology は省略で、再生数の主張ではない")
     if runner_up is not None:
         if round(runner_up["fit"], 2) == round(c["fit"], 2):
             out.append(f"次点 {runner_up['id']} とは内容の一致が同じで、audience の一致・状態・ルートの状態・費用・尺の順で上回った")

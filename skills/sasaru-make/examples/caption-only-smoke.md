@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: caption-only-smoke
 name: 問いかけから言い切りまでの字だけの三拍
 status: draft
@@ -12,6 +12,19 @@ contentRoute: reference-world
 subject:
   of: reference-world
   words: 問いかけから言い切りまでを、字だけが三拍で進む
+spreadPsychology:
+  plays:
+    mechanism: 問いの未完了。開いた問いが、答えの一句まで注意を残す
+    trigger: 最初のフレームの問いが習慣を言い当て、言い切りは最後の拍まで出さない
+    basis: inferred
+  comments:
+    mechanism: 自分の面倒を一文で返す自己参照
+    trigger: 問いが習慣の形で、見る人の別の面倒を書く穴になる
+    basis: inferred
+  shares:
+    mechanism: 言い当てられた面倒を、同じ習慣の相手に渡す実用
+    trigger: 言い切りの一句が絵の終わりまで残り、送った画面がその答えになる
+    basis: inferred
 source:
   kind: hand-written
   platform: none

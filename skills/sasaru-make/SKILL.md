@@ -81,6 +81,17 @@ audio:
 - 入口: `../sasaru-gate/scripts/check_placement.py` の `check_placement`。`scripts/plan.py` が呼ぶ
 - 戻り: `productPlacement` を `cut.json` にそのまま書く。`{"slot": false}` や役割 `absent` の型には、商品のカードもエンドカードも足さない。主題が商品なら計画を書かず終了コード 3
 
+### check-spread-psychology
+
+ルーターの Tools と同じ道具。計画を書く前に必ず読む。
+
+- 名前: `check-spread-psychology`
+- いつ: `cut.json` を書く前。`check-product-placement` の直後。
+- 引数:
+  - `playbook`: 選んだ playbook のファイル
+- 入口: `../sasaru-gate/scripts/check_spread.py` の `check_spread`。`scripts/plan.py` が呼ぶ
+- 戻り: `spreadPsychology` を `cut.json` にそのまま書く。`payoff` がある型で欄が無いとき、`null` のとき、再生数の主張のときは計画を書かず終了コード 3
+
 ## Phase 1. 計画を書く
 
 ```bash
@@ -91,7 +102,7 @@ uv run --script skills/sasaru-make/scripts/plan.py <playbook.md|id> <content.yam
 
 plan.py がすること。
 
-1. 道具 `check-product-placement` を読む。playbook の `productPlacement` と、台本の `subject` を見る。不合格なら `cut.json` を書かない。合格なら、読んだ `productPlacement` を計画に書く。省略は `{"slot": false}` で、エンドカードの宣伝ではない。説明動画の台本は作らない。
+1. 道具 `check-product-placement` を読む。playbook の `productPlacement` と、台本の `subject` を見る。不合格なら `cut.json` を書かない。合格なら、読んだ `productPlacement` を計画に書く。省略は `{"slot": false}` で、エンドカードの宣伝ではない。説明動画の台本は作らない。続けて道具 `check-spread-psychology` を読む。`payoff` がある型は `spreadPsychology` が要る。再生、コメント、共有は別の心理で、それぞれ機構と引き金を言葉で書き、`basis` は `inferred`。再生数は不合格。`null` は不合格。不合格なら `cut.json` を書かない。合格なら読んだ欄を計画に書く。
 2. playbook のフロントマターをスキーマで検証し、id とファイル名、ビートの重なり、`at.beat` と層の `beats` の参照先を見る。YAML は 1.2 の真偽値で読み、日付を文字列のまま扱う。
 3. ルートを決める。絵は動画生成モデルの素材にし、コードが担うのはタイミング、テロップ、組み立て（器は Akari Video）だけにする。場面そのものをコードで描くルートは選ばない。`--route` か `content.route` で既定でないルートを選んだときは `routeRequestedByMaker: true` を書く。`talkingHead: true` のルートは `--allow-talking-head` が無ければ拒否する。作る人がこのカットのために名指ししたときだけ付ける。
 4. 尺を決め、参照の尺からの伸縮の比を出す。ビートの秒、ズーム、トランジション、効果音、BGM の入りを同じ比で動かす。帯の外の尺は入力の誤り。
