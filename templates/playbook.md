@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: replace-with-format-id
 name: 型の短い名前
 status: draft
@@ -13,6 +13,19 @@ contentRoute: reference-world
 subject:
   of: reference-world
   words: 参照の世界で起きる出来事を一文で書く
+spreadPsychology:
+  plays:
+    mechanism: 約束の未完了。先に出した約束が、回収の拍まで注意を残す
+    trigger: フックが約束の一句を出し、回収は後の拍まで出さない
+    basis: inferred
+  comments:
+    mechanism: 自分の題材で約束を言い換えたくなる参加
+    trigger: 約束が一般の形で、見る人の一件を一文で足す穴が残る
+    basis: inferred
+  shares:
+    mechanism: 相手がまだ知らない回収を渡す実用
+    trigger: 答えが最後の拍にあり、途中の画面では約束だけが残る
+    basis: inferred
 source:
   kind: hand-written
   platform: none
@@ -148,6 +161,8 @@ evidence:
 ## なぜ伸びるか
 
 推論として書く。見る人が止まる理由、最後まで見る理由、もう一度見る理由。伸びない側に落ちない理由も分けて書く。
+
+`spreadPsychology` に、再生（`plays`）、コメント（`comments`）、共有（`shares`）を三つに分けて書く。それぞれ心理の機構（`mechanism`）と、型の何がそれを起こすか（`trigger`）を言葉で書く。出どころは `basis: inferred`。再生数は書かない。`payoff` のビートがある型は最後まで見ることが仕事なので、この欄を省けない。`null` は書かない。
 
 ## 差し替える場所
 

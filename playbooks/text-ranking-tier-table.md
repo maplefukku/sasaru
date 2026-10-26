@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: text-ranking-tier-table
 name: 文字だけランキング・Tier 表
 status: draft
@@ -17,6 +17,19 @@ contentRoute: reference-world
 subject:
   of: reference-world
   words: 勉強法や講義のあるあるを、動かない表で格付けする
+spreadPsychology:
+  plays:
+    mechanism: 自己関連の探索。自分の項目がどの帯にあるかを探し終えるまで視線が残る
+    trigger: 最初のフレームで格付けの題と最上位が出て、下の帯は一度では読み切れない密度で残る
+    basis: inferred
+  comments:
+    mechanism: 自分のやり方がどの帯かを一文で宣言したくなる自己関連
+    trigger: 帯の名前が短い宣言文で、同意か言い直しを書く穴になる
+    basis: inferred
+  shares:
+    mechanism: 相手の位置を当てる遊びとして表を渡す
+    trigger: 表全体が最初から見え、送った相手が自分の帯を一画面で探せる
+    basis: inferred
 source:
   kind: hand-written
   platform: youtube-shorts

@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: timestamp-vlog-lecture-day
 name: タイムスタンプ無言 vlog（講義のある1日）
 status: draft
@@ -17,6 +17,19 @@ contentRoute: reference-world
 subject:
   of: reference-world
   words: 講義のある一日を、顔を出さずに時刻の順でたどる
+spreadPsychology:
+  plays:
+    mechanism: 時刻の進行が作る完了への予期。一日が閉じるまで、次の時刻が小さな未完了として残る
+    trigger: 最初の時刻が一日の順を約束し、講義の答えの画は終わりに近い拍まで出さない
+    basis: inferred
+  comments:
+    mechanism: 自分の一日と照合して、同じ時刻の自分を一文で重ねる
+    trigger: 時刻の表示と手元の画が、見る人の講義の日の穴になる
+    basis: inferred
+  shares:
+    mechanism: 生活の見本として相手に渡す実用
+    trigger: 顔が無く時刻の順だけなので、送った相手が自分の日の型として辿れる
+    basis: inferred
 source:
   kind: hand-written
   platform: youtube-shorts

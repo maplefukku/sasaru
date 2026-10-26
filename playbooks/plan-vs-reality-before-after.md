@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: plan-vs-reality-before-after
 name: 計画 vs 現実／ノートのビフォーアフター
 status: draft
@@ -17,6 +17,19 @@ contentRoute: reference-world
 subject:
   of: reference-world
   words: 計画どおりのノートが崩れて、同じ構図のあとで持ち直す
+spreadPsychology:
+  plays:
+    mechanism: 予告された裏切り。綺麗な側が崩れると先に分かっているので、崩れる拍まで注意が閉じない
+    trigger: 最初の見出しが比較を予告し、現実への切り替えは中盤のカットまで出さない
+    basis: inferred
+  comments:
+    mechanism: 自分の崩れた計画を重ねる同一視
+    trigger: 現実の拍が、見る人が知っている散らかった現物の形をしている
+    basis: inferred
+  shares:
+    mechanism: 相手の計画への皮肉として一画面を渡す社会的通貨
+    trigger: 前と後を並べて止める最後の拍が、差を一枚で渡せる
+    basis: inferred
 source:
   kind: hand-written
   platform: youtube-shorts

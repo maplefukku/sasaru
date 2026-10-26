@@ -11,7 +11,9 @@ uv run --script skills/sasaru-pick/tests/test_pick.py
 uv run --script skills/sasaru-ingest/tests/test_<script>.py   # caption_boxes、camera_motion、audio_events、people_voice。重いものは SASARU_SLOW=1
 uv run --script skills/sasaru-gate/scripts/selftest.py
 uv run --script skills/sasaru-gate/tests/test_check_placement.py
+uv run --script skills/sasaru-gate/tests/test_check_spread.py
 uv run --script skills/sasaru-make/tests/test_plan_placement.py
+uv run --script skills/sasaru-make/tests/test_plan_spread.py
 python3 -m unittest discover -s skills/sasaru-make/adapters/tests -t skills/sasaru-make/adapters/tests
 ```
 

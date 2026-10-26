@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: 2ch-thread-reading
 name: 2ch スレ風の文字読み（大学ネタ）
 status: draft
@@ -16,6 +16,19 @@ contentRoute: reference-world
 subject:
   of: reference-world
   words: 大学のスレで、伏せた結末にレスが積まれていく
+spreadPsychology:
+  plays:
+    mechanism: 伏せた結末への情報の隙間。結果は約束されていて、落ちが最後まで出ない
+    trigger: 最初の札が結果を約束して中身を伏せ、大きな一レスは最後の拍にある
+    basis: inferred
+  comments:
+    mechanism: スレに自分のレスを足す参加
+    trigger: 反応の札が疑う、驚く、自分語りの形で、次のレスの空欄に見える
+    basis: inferred
+  shares:
+    mechanism: 同じ話題を、まだ読んでいない相手へ回す界隈の回覧
+    trigger: 落ちが最後の大きな札にあり、途中を送ると話が閉じない
+    basis: inferred
 source:
   kind: hand-written
   platform: youtube-shorts

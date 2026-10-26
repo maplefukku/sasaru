@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: hands-desk-broll
 name: 手元の机と字幕
 status: draft

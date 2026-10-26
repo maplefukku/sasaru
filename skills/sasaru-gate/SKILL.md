@@ -35,6 +35,7 @@ uv run --script scripts/validate_playbook.py sasaru/playbooks/<id>.md --work sas
 - `@handle` が無い。コードブロックとインラインコードの中、CSS と Sass の at-rule（`@font-face` など）は数えない。
 - 文言検査。`source-text.json` の文字列と playbook のファイル全体（フロントマターの自由文字列も）を突き合わせる。CJK は 6 文字、ラテン文字は 3 語が続けて一致したら不合格。`source.kind: ingested` で `source-text.json` が無ければ不合格。`--work` が無いときは `playbooks/../work/<id>/` を探す。
 - 商品の置き場。`scripts/check_placement.py`（道具 `check-product-placement`）が `contentRoute`、`subject`、`productPlacement` を見る。商品のルートで欄が無いとき、主題が商品のとき、`null` のときは不合格。置き場の無い型は欄を省いたまま合格し、その省略はエンドカードではない。
+- 再生・コメント・共有の心理。`scripts/check_spread.py`（道具 `check-spread-psychology`）が `spreadPsychology` を見る。`plays`、`comments`、`shares` は別の心理で、それぞれ機構と引き金を言葉で書き、`basis` は `inferred`。再生数の主張、`null`、三つの機構が同じ言葉、は不合格。`payoff` がある型で欄が無いときも不合格。`payoff` が無い型は欄を省いたまま合格し、その省略は再生数ではない。
 
 ## Phase 2: カット検査
 

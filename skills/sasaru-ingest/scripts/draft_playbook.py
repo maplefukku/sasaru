@@ -599,7 +599,7 @@ def main():
         ev.i("fonts")
 
     fm = {
-        "schema": "sasaru-playbook/2",
+        "schema": "sasaru-playbook/3",
         "id": a.id,
         "name": f"{TODO}: 型の短い名前",
         "status": "measured",
@@ -649,7 +649,8 @@ def main():
         "テロップ": " ".join(cap_notes) + f" caption_boxes: {status('caption_boxes')}。",
         "カメラとトランジションとズーム": " ".join(cam_notes) + f" camera_motion: {status('camera_motion')}。",
         "BGM と効果音": " ".join(audio_notes) + f" audio_events: {status('audio_events')}。参照の音は使わない（`referenceAudioUsed: false`）。",
-        "なぜ伸びるか": f"{TODO}: 推論として書く。止まる理由、最後まで見る理由、もう一度見る理由、伸びない側に落ちない理由。{talk_note}",
+        "なぜ伸びるか": f"{TODO}: 推論として書く。止まる理由、最後まで見る理由、もう一度見る理由、伸びない側に落ちない理由。{talk_note}"
+                    f" payoff がある下書きは spreadPsychology（plays、comments、shares）を言葉で埋める。それぞれ心理の機構と、型の何がそれを起こすか。basis は inferred。再生数は書かない。null は書かない。道具は check-spread-psychology。",
         "差し替える場所": "\n".join(f"- `{b['id']}`: {TODO}" for b in beats) + "\n- 変えない部分: テロップの層の大きさ、位置、出し消しの規則、最後の一枚を絵の終わりまで残すこと。\n- 商品の置き場: この下書きは productPlacement を省いてある（置き場が無い）。アカウントの型に置き場があるなら、ビートと役割と直接さを言葉で埋めてから check-product-placement に通す。null にはしない。",
         "制作ルート": "\n\n".join(route_steps(rt, a.id) for rt in routes),
         "編集の器とフォント": ("`caption-over-footage` は ffmpeg と ASS で焼く。`code-motion` は HTML Canvas で描いて ffmpeg で書き出す。"

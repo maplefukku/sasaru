@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: list-countdown-captions
 name: 字幕だけの三つ数え
 status: measured
@@ -15,6 +15,19 @@ contentRoute: reference-world
 subject:
   of: reference-world
   words: 三つ数える字幕だけで、言い切りまで進む
+spreadPsychology:
+  plays:
+    mechanism: 数えの未完了。約束した個数に届くまで、課題が閉じない
+    trigger: 最初の拍が三つあると約束し、言い切りは最後の拍まで出さない
+    basis: inferred
+  comments:
+    mechanism: 空いた項目に自分の一件を足したくなる自己生成
+    trigger: 三つが一般のコツで、見る人の別の一つを書く穴が残る
+    basis: inferred
+  shares:
+    mechanism: 短い手順を相手の役に立つものとして渡す実用
+    trigger: 言い切りが最後の一枚に残り、送り先が三つの中身をそのまま読める
+    basis: inferred
 source:
   kind: hand-written
   platform: none

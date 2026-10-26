@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/2
+schema: sasaru-playbook/3
 id: talking-confession
 name: 一人語りを手元映像に置き換えた型
 status: measured
@@ -14,6 +14,19 @@ contentRoute: reference-world
 subject:
   of: reference-world
   words: 失敗談の中身を、手元の映像と字幕でたどる
+spreadPsychology:
+  plays:
+    mechanism: 矛盾への注意。否定された常識の穴を、回収まで閉じたくなる
+    trigger: フックが常識を否定し、体験による回収は後の拍まで出さない
+    basis: inferred
+  comments:
+    mechanism: 空いた主語に自分の一件を入れる同一視
+    trigger: 体験の回収が一人の話のままで、似た体験を書く場所が残る
+    basis: inferred
+  shares:
+    mechanism: この否定に同意する自分を、相手に見せる身份の提示
+    trigger: 否定の一句が短く、送った相手が同じ否定を自分のこととして読める
+    basis: inferred
 source:
   kind: ingested
   platform: instagram-reels

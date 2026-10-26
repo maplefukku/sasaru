@@ -43,6 +43,17 @@ def load_placement():
     return mod
 
 
+def load_spread():
+    """The check-spread-psychology tool. Same function the gate script runs."""
+    import importlib.util
+
+    path = PLUGIN_DIR / "skills" / "sasaru-gate" / "scripts" / "check_spread.py"
+    spec = importlib.util.spec_from_file_location("sasaru_check_spread", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 ADAPTERS = SKILL_DIR / "adapters"
 GATE = PLUGIN_DIR / "skills" / "sasaru-gate" / "scripts" / "check_cut.py"
 
@@ -656,6 +667,10 @@ class Plan:
         if not placed["ok"]:
             raise Refused("product placement:\n  " + "\n  ".join(placed["errors"]))
         self.placement = placed["productPlacement"]
+        spread = load_spread().check_spread(self.pb)
+        if not spread["ok"]:
+            raise Refused("spread psychology:\n  " + "\n  ".join(spread["errors"]))
+        self.spread = spread["spreadPsychology"]
         self.cut_dir = home_dir(self.args.home) / "cuts" / self.cut_id
         self.cut_dir.mkdir(parents=True, exist_ok=True)
         route = self.route()
@@ -700,6 +715,7 @@ class Plan:
             "playbookStatus": self.pb["status"],
             "content": {"path": str(self.c_path), "sha256": sha256(self.c_path)},
             "productPlacement": self.placement,
+            "spreadPsychology": self.spread,
             "video": "cut.mp4",
             "route": route["id"],
             "routeRequestedByMaker": explicit and not route["default"],
