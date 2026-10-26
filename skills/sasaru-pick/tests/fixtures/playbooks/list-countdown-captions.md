@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: list-countdown-captions
 name: 字幕だけの三つ数え
 status: measured
@@ -11,6 +11,10 @@ fitsContent:
   - 勉強法のコツ
   - 習慣化のヒント
   - アプリの機能紹介
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 三つ数える字幕だけで、言い切りまで進む
 source:
   kind: hand-written
   platform: none

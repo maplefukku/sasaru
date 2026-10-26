@@ -40,7 +40,26 @@ sasaru は、流行っているショート動画の型を playbook として残
 - 四つの役のどれにも合わない依頼。五つ目の役は開かない。
 - 役の SKILL.md の本文が「未執筆」のとき。その役は未実装と返す。
 
-既定にしないもの。人がカメラに向かって喋るルート（**sasaru-principle-no-talking-head-by-default**）。
+既定にしないもの。人がカメラに向かって喋るルート（**sasaru-principle-no-talking-head-by-default**）。商品の説明動画と、書いていないエンドカード。商品をどこに出すかはアカウントの型が決め、一本のリールでは動かさない。
+
+## Tools
+
+スキルが呼ぶ道具。名前、引数、いつ呼ぶか。引数を別の形に組み直さない。
+
+### check-product-placement
+
+アカウントの型が決めた商品の置き場を読む。欄は playbook の `productPlacement`（どのビートか、役割 `absent` / `prop` / `payoff` / `spoken` / `end-card`、どれだけ直接か）。省いてよいのは、その型に商品の置き場が一度も無いときだけ。`null` はエンドカードの宣伝ではない。動画の主題は `subject` で、参照の世界か Moguno。主題が商品の台本は不合格。中身のルート `contentRoute` は三つ。`reference-world` は参照の概念と世界を残す。`moguno` は世界を Moguno の IP に置き換える。`in-world` は世界を残し、商品は世界の中の小道具としてだけ出す。
+
+- 名前: `check-product-placement`
+- いつ: playbook をライブラリに置く前。pick が型を読むとき。make が計画を書くとき。
+- 引数:
+  - `playbook`: playbook のファイル
+  - `content`: 作る人の content.yaml。省略できる。あるときは主題を見る
+- 入口: `skills/sasaru-gate/scripts/check_placement.py` の `check_placement`
+- 起動: `uv run --script <プラグイン>/skills/sasaru-gate/scripts/check_placement.py --playbook <playbook.md> [--content <content.yaml>]`
+- 戻り: JSON の `ok`、`errors`、`productPlacement`。置き場が無い型は `{"slot": false}` で、エンドカードではない。終了コードは 0 合格、2 入力の誤り、3 不合格。
+
+pick の `scripts/pick.py` と make の `scripts/plan.py` は、この入口と同じ `check_placement` を呼ぶ。合格しない playbook は選ばず、計画も書かない。
 
 ## Principles
 

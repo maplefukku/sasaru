@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: plan-vs-reality-before-after
 name: 計画 vs 現実／ノートのビフォーアフター
 status: draft
@@ -13,6 +13,10 @@ fitsContent:
   - ノートの取り方や勉強法の改善
   - 計画が崩れる学生生活のあるある
   - 製品の効果を一画面で見せたいもの
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 計画どおりのノートが崩れて、同じ構図のあとで持ち直す
 source:
   kind: hand-written
   platform: youtube-shorts

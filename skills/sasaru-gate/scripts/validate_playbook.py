@@ -18,6 +18,11 @@ from pathlib import Path
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+from check_placement import check_placement  # noqa: E402
+
 FALLBACK_HEADINGS = [
     "構成と尺", "フック", "ビート", "テロップ", "カメラとトランジションとズーム", "BGM と効果音", "なぜ伸びるか",
     "差し替える場所", "制作ルート", "編集の器とフォント", "素材の権利", "費用の目安", "測ったことと推論",
@@ -359,6 +364,9 @@ def validate(fm, body, path=None, schema_path=None, template_path=None, work=Non
                            "rule": f"{CJK_RUN} CJK characters or {LATIN_WORDS} Latin words in a row"}
                 if cj or la:
                     errors.append(f"wording: {len(cj)} CJK runs and {len(la)} Latin word runs match the source text")
+
+    for msg in check_placement(fm)["errors"]:
+        errors.append(f"placement: {msg}")
     return errors, warnings, wording
 
 

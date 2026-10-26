@@ -50,12 +50,28 @@ uv run --script <このスキルの絶対パス>/scripts/pick.py --brief sasaru/
 - 費用は `routes[].costUsdPerVideo.max` が `budgetUsd` 以下のルートだけ通す。数は playbook の欄から読み、足したり見積もったりしない。
 - 並べる順は、内容の一致、audience の一致（playbook に `audience` が無ければ 0）、playbook の状態（produced、measured、draft の順）、ルートの状態、費用、希望の尺との近さ、測った欄の数。
 - 内容の一致が 0.3 未満の型は選ばない（名指しのときを除く）。当て推量で選ぶより聞き返す。
+- 各 playbook を候補にする前に、道具 `check-product-placement` の `check_placement` を読む。不合格の型は `skipped` に載せ、選ばない。選んだ型の `productPlacement` を結果に出す。`{"slot": false}` は置き場が無いことで、エンドカードも説明動画も足さない。役割と直接さが書いてあるときも、その言葉のとおりで、書いていないエンドカードは足さない。
+- ブリーフの `content.kind` か `content.message` の主題が商品の説明なら、型を選ばずに `refused` を返す。
 
 ## Phase 2: 確かめる
 
 `status` が `picked` なら、`candidates`（最大 3 本）の `name` と `matchedFitsContent` を見て、内容の合い方を確かめる。一致は文字の重なりで測っているので、意味がずれていれば次点に替えてよい。替えたら、替えた理由を一文で添える。名指しのときは替えない。
 
 選んだルートが有料（`paidApi: true`）なら、作る前に **sasaru-principle-quote-before-you-spend** に従うと添える。費用の時点 `asOf` も見せる。
+
+## Tools
+
+### check-product-placement
+
+ルーターの Tools と同じ道具。pick は選ぶ前に必ず読む。
+
+- 名前: `check-product-placement`
+- いつ: ライブラリの各 playbook を候補にする前。ブリーフの主題を読むとき。
+- 引数:
+  - `playbook`: その型のフロントマター
+  - `content`: 渡さない。主題はブリーフの `content.kind` と `content.message`
+- 入口: `../sasaru-gate/scripts/check_placement.py` の `check_placement`。`scripts/pick.py` が呼ぶ
+- 戻り: `productPlacement`。置き場が無い型は `{"slot": false}`。説明動画と、書いていないエンドカードにはしない
 
 ## Outputs
 
@@ -69,9 +85,10 @@ uv run --script <このスキルの絶対パス>/scripts/pick.py --brief sasaru/
 | `no-match` | `excluded` の止まった理由を型ごとに一行で見せ、どの条件を緩めれば開くかを聞く |
 | `empty-library` | playbook が無いことと、sasaru-ingest で一本取り込む道を返す |
 | `bad-brief` | ブリーフのどの欄が読めなかったかを返し、聞き直す |
+| `refused` | ブリーフの主題が商品の説明だった。世界の出来事に言い直すよう聞く。型は選ばない |
 
-`skipped` に載った playbook は、スキーマに通らなかったので選んでいない。1 本以上あれば、sasaru-gate で確かめる道を一行添える。
+`skipped` に載った playbook は、スキーマか商品の置き場に通らなかったので選んでいない。1 本以上あれば、sasaru-gate で確かめる道を一行添える。
 
-make に渡すのは、選んだ playbook のファイルパスとルートの id。
+make に渡すのは、選んだ playbook のファイルパス、ルートの id、読んだ `productPlacement`。
 
 テストは `uv run --script skills/sasaru-pick/tests/test_pick.py`。`tests/fixtures/` の playbook はテスト用で、ライブラリではない。

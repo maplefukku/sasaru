@@ -594,11 +594,12 @@ def main():
     audio, audio_notes = audio_block(probe, onsets, audio_ev, beats, cards, cuts, zoom_t, fmt_speech, ev)
     routes = route_list(ref, ev)
     ev.u("hook.type", "name", "summary", "audience", "fitsContent")
+    ev.i("contentRoute", "subject.of", "subject.words")
     if layers:
         ev.i("fonts")
 
     fm = {
-        "schema": "sasaru-playbook/1",
+        "schema": "sasaru-playbook/2",
         "id": a.id,
         "name": f"{TODO}: 型の短い名前",
         "status": "measured",
@@ -606,6 +607,8 @@ def main():
         "tags": [],
         "audience": [f"{TODO}: 誰に向けた型か"],
         "fitsContent": [f"{TODO}: この型に載せられる自分のコンテンツの種類"],
+        "contentRoute": "reference-world",
+        "subject": {"of": "reference-world", "words": f"{TODO}: 参照の世界で起きる出来事を一文で書く"},
         "source": {"kind": "ingested", "platform": a.platform, "rightsTier": prov["rightsTier"],
                    "ingestedAt": str(prov["ingestedAt"]), "measuredFiles": 1, "reference": ref},
         "format": {"aspect": aspect, "fps": fps,
@@ -647,7 +650,7 @@ def main():
         "カメラとトランジションとズーム": " ".join(cam_notes) + f" camera_motion: {status('camera_motion')}。",
         "BGM と効果音": " ".join(audio_notes) + f" audio_events: {status('audio_events')}。参照の音は使わない（`referenceAudioUsed: false`）。",
         "なぜ伸びるか": f"{TODO}: 推論として書く。止まる理由、最後まで見る理由、もう一度見る理由、伸びない側に落ちない理由。{talk_note}",
-        "差し替える場所": "\n".join(f"- `{b['id']}`: {TODO}" for b in beats) + "\n- 変えない部分: テロップの層の大きさ、位置、出し消しの規則、最後の一枚を絵の終わりまで残すこと。",
+        "差し替える場所": "\n".join(f"- `{b['id']}`: {TODO}" for b in beats) + "\n- 変えない部分: テロップの層の大きさ、位置、出し消しの規則、最後の一枚を絵の終わりまで残すこと。\n- 商品の置き場: この下書きは productPlacement を省いてある（置き場が無い）。アカウントの型に置き場があるなら、ビートと役割と直接さを言葉で埋めてから check-product-placement に通す。null にはしない。",
         "制作ルート": "\n\n".join(route_steps(rt, a.id) for rt in routes),
         "編集の器とフォント": ("`caption-over-footage` は ffmpeg と ASS で焼く。`code-motion` は HTML Canvas で描いて ffmpeg で書き出す。"
                            "フォントは Noto Sans JP（OFL-1.1、Google Fonts から入手）。ファイルは同梱しない。" if layers else "テロップが無いのでフォントは使わない。"),

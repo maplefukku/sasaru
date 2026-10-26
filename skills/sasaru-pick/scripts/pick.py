@@ -24,6 +24,17 @@ import yaml
 PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_PATH = PLUGIN_ROOT / "schema" / "playbook.schema.json"
 
+
+def load_placement():
+    """The check-product-placement tool. Same function the gate script runs."""
+    import importlib.util
+
+    path = PLUGIN_ROOT / "skills" / "sasaru-gate" / "scripts" / "check_placement.py"
+    spec = importlib.util.spec_from_file_location("sasaru_check_placement", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
 NEEDS = {"image-gen", "t2v", "i2v", "v2v", "r2v", "lipsync", "tts", "screen-capture", "own-footage", "stock-footage"}
 ASPECTS = {"9:16", "4:5", "1:1", "16:9"}
 VOICES = {"none", "tts-voiceover", "own-voiceover"}
@@ -76,7 +87,7 @@ def load_validator():
 
 def minimal_problems(fm: dict) -> list[str]:
     problems = []
-    for key in ("id", "fitsContent", "format", "audio", "routes"):
+    for key in ("id", "fitsContent", "format", "audio", "routes", "contentRoute", "subject"):
         if key not in fm:
             problems.append(f"{key} が無い")
     if not isinstance(fm.get("routes"), list) or not fm.get("routes"):
@@ -106,6 +117,11 @@ def load_library(dirs: list[Path]):
             if problems:
                 skipped.append({"file": str(path), "reason": "スキーマ不合格: " + " / ".join(problems)})
                 continue
+            placed = load_placement().check_placement(fm)
+            if not placed["ok"]:
+                skipped.append({"file": str(path), "reason": "商品の置き場: " + " / ".join(placed["errors"][:3])})
+                continue
+            fm["_placement"] = placed["productPlacement"]
             pid = fm["id"]
             if pid != path.stem:
                 notes.append(f"{path}: id（{pid}）がファイル名と違う")
@@ -332,6 +348,9 @@ def candidate_view(c: dict) -> dict:
         "audienceFit": round(c["audienceFit"], 2),
         "matchedAudience": c["audienceMatched"],
         "durationSec": fm["format"]["durationSec"],
+        "contentRoute": fm.get("contentRoute"),
+        "subject": fm.get("subject"),
+        "productPlacement": fm.get("_placement") or {"slot": False},
         "route": route_view(c["route"], c["routeIsDefault"]),
     }
 
@@ -361,6 +380,14 @@ def reasons_for(c: dict, brief: dict, runner_up: dict | None) -> list[str]:
     paid = "有料 API を呼ぶ" if route["paidApi"] else "有料 API を呼ばない"
     out.append(f"一本 {cost['min']:g}〜{cost['max']:g} USD、{paid}。根拠: {cost['basis']}")
     out.append(f"playbook の状態は {fm['status']}")
+    pp = fm.get("_placement") or {"slot": False}
+    if pp.get("slot"):
+        out.append(
+            f"商品の置き場はビート {pp.get('beat')}、役割 {pp.get('role')}、直接さは「{pp.get('directness')}」。"
+            "説明動画にも、書いていないエンドカードにもしない"
+        )
+    else:
+        out.append("この型に商品の置き場は無い（productPlacement は省略）。エンドカードも説明動画も足さない")
     if runner_up is not None:
         if round(runner_up["fit"], 2) == round(c["fit"], 2):
             out.append(f"次点 {runner_up['id']} とは内容の一致が同じで、audience の一致・状態・ルートの状態・費用・尺の順で上回った")
@@ -420,6 +447,13 @@ def relaxations(closed: list) -> list[dict]:
 
 def pick(brief: dict, playbooks: dict, skipped: list, notes: list) -> dict:
     result = {"libraryCount": len(playbooks), "skipped": skipped, "notes": notes}
+    if load_placement().pitch_shaped(brief["kind"]) or load_placement().pitch_shaped(brief["message"]):
+        result.update(
+            status="refused",
+            message="主題が商品の説明になっている。動画の主題は参照の世界か Moguno で、説明動画にはしない。",
+            missing=[{"field": "content.message", "question": "世界の中の出来事を一文で"}],
+        )
+        return result
     if brief["unknownKeys"]:
         notes.append(f"ブリーフの知らない欄を無視した: {', '.join(brief['unknownKeys'])}")
     if brief["budget"] is None:
@@ -441,7 +475,7 @@ def pick(brief: dict, playbooks: dict, skipped: list, notes: list) -> dict:
         result.update(
             status="need-info",
             message="何を伝えるかが無いので選べない",
-            missing=[{"field": "content.kind", "question": "載せる自分のコンテンツの種類（例: 勉強法のコツ、アプリの機能紹介）"},
+            missing=[{"field": "content.kind", "question": "載せる自分のコンテンツの種類（例: 勉強法のコツ、講義のあるある）"},
                      {"field": "content.message", "question": "一本で伝えたいこと"}],
         )
         return result

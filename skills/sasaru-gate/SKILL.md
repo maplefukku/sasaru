@@ -34,6 +34,7 @@ uv run --script scripts/validate_playbook.py sasaru/playbooks/<id>.md --work sas
 - `evidence` のパスが実在する（層は `captions.<層id>.<欄>`）。一つのパスを二つの組に入れない。`measured` の欄は null でない。null の意味はスキーマの各欄の説明から読む。`null: unmeasured` の欄は `unmeasured` に載っている。`null: not applicable` の欄は載せない。
 - `@handle` が無い。コードブロックとインラインコードの中、CSS と Sass の at-rule（`@font-face` など）は数えない。
 - 文言検査。`source-text.json` の文字列と playbook のファイル全体（フロントマターの自由文字列も）を突き合わせる。CJK は 6 文字、ラテン文字は 3 語が続けて一致したら不合格。`source.kind: ingested` で `source-text.json` が無ければ不合格。`--work` が無いときは `playbooks/../work/<id>/` を探す。
+- 商品の置き場。`scripts/check_placement.py`（道具 `check-product-placement`）が `contentRoute`、`subject`、`productPlacement` を見る。商品のルートで欄が無いとき、主題が商品のとき、`null` のときは不合格。置き場の無い型は欄を省いたまま合格し、その省略はエンドカードではない。
 
 ## Phase 2: カット検査
 

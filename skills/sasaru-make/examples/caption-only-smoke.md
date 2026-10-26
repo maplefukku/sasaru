@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: caption-only-smoke
 name: 問いかけから言い切りまでの字だけの三拍
 status: draft
@@ -8,6 +8,10 @@ tags: [caption-only, text-motion, smoke]
 fitsContent:
   - アプリや道具の一行で言える効き目
   - 悩みの言い当てと、その答え
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 問いかけから言い切りまでを、字だけが三拍で進む
 source:
   kind: hand-written
   platform: none
