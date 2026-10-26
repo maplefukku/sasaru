@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: screen-demo-voiceover
 name: 画面録画と読み上げ
 status: draft
@@ -8,6 +8,10 @@ tags: [app, screen]
 fitsContent:
   - アプリの使い方
   - 作業の手順
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 画面の中の操作が三手で進む
 source:
   kind: hand-written
   platform: none

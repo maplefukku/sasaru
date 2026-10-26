@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: timestamp-vlog-lecture-day
 name: タイムスタンプ無言 vlog（講義のある1日）
 status: draft
@@ -13,6 +13,10 @@ fitsContent:
   - 一日の流れの中で使うアプリや道具（録音、ノート、学習アプリ）
   - 講義の日、テスト期間、課題の日のルーティン
   - 朝活や夜の復習のように、時刻で区切れる習慣
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 講義のある一日を、顔を出さずに時刻の順でたどる
 source:
   kind: hand-written
   platform: youtube-shorts

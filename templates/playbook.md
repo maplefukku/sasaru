@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: replace-with-format-id
 name: 型の短い名前
 status: draft
@@ -9,6 +9,10 @@ audience:
   - 誰に向けた型か（任意の欄）
 fitsContent:
   - この型に載せられる自分のコンテンツの種類
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 参照の世界で起きる出来事を一文で書く
 source:
   kind: hand-written
   platform: none
@@ -25,8 +29,22 @@ hook:
   type: text-promise
   firstFrameHasText: true
 beats:
-  - { id: b1, role: hook, tIn: 0.0, tOut: 1.0, purpose: 見る人に何を約束するか, swap: 自分の約束の一句 }
-  - { id: b2, role: payoff, tIn: 1.0, tOut: 6.0, purpose: 約束をどう回収するか, swap: 自分の答え }
+  - {
+      id: b1,
+      role: hook,
+      tIn: 0.0,
+      tOut: 1.0,
+      purpose: 見る人に何を約束するか,
+      swap: 自分の約束の一句,
+    }
+  - {
+      id: b2,
+      role: payoff,
+      tIn: 1.0,
+      tOut: 6.0,
+      purpose: 約束をどう回収するか,
+      swap: 自分の答え,
+    }
 captions:
   - id: c1
     role: headline
@@ -73,10 +91,15 @@ routes:
     needs: [none]
     paidApi: false
     talkingHead: false
-    costUsdPerVideo: { min: 0, max: 0, basis: ローカルで描画して ffmpeg で書き出す }
+    costUsdPerVideo:
+      { min: 0, max: 0, basis: ローカルで描画して ffmpeg で書き出す }
     status: design-only
 fonts:
-  - { family: Noto Sans JP, license: OFL-1.1, source: "https://fonts.google.com/noto/specimen/Noto+Sans+JP" }
+  - {
+      family: Noto Sans JP,
+      license: OFL-1.1,
+      source: "https://fonts.google.com/noto/specimen/Noto+Sans+JP",
+    }
 rights:
   makerSupplies:
     - 自分で書いた台本
@@ -129,6 +152,8 @@ evidence:
 ## 差し替える場所
 
 自分のコンテンツを入れる場所を、ビートの id ごとに。変えてはいけない部分も書く。
+
+商品の置き場は `productPlacement` に言葉で書く。どのビートか、役割（`absent` 出さない、`prop` 世界の中の小道具、`payoff` 回収、`spoken` 名前を言う、`end-card` エンドカード）、どれだけ直接か（`directness`）。決めるのはアカウントの型で、一本の台本では動かさない。この欄を省くのは、その型に商品の置き場が一度も無いときだけ。`null` は書かない。省いた欄はエンドカードの宣伝ではない。`contentRoute` は参照の世界を残すか、Moguno の IP に置き換えるか、世界の中の要素としてだけ商品を出すか。動画の主題 `subject` は参照の世界か Moguno で、商品の説明を主題にしない。
 
 ## 制作ルート
 

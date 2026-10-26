@@ -30,6 +30,19 @@ import yaml
 SKILL_DIR = Path(__file__).resolve().parent.parent
 PLUGIN_DIR = SKILL_DIR.parent.parent
 SCHEMA = PLUGIN_DIR / "schema" / "playbook.schema.json"
+
+
+def load_placement():
+    """The check-product-placement tool. Same function the gate script runs."""
+    import importlib.util
+
+    path = PLUGIN_DIR / "skills" / "sasaru-gate" / "scripts" / "check_placement.py"
+    spec = importlib.util.spec_from_file_location("sasaru_check_placement", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 ADAPTERS = SKILL_DIR / "adapters"
 GATE = PLUGIN_DIR / "skills" / "sasaru-gate" / "scripts" / "check_cut.py"
 
@@ -639,6 +652,10 @@ class Plan:
         self.cut_id = self.c.get("cut")
         if not self.cut_id or not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", self.cut_id):
             raise InputError("content.cut must be a kebab-case cut id")
+        placed = load_placement().check_placement(self.pb, self.c)
+        if not placed["ok"]:
+            raise Refused("product placement:\n  " + "\n  ".join(placed["errors"]))
+        self.placement = placed["productPlacement"]
         self.cut_dir = home_dir(self.args.home) / "cuts" / self.cut_id
         self.cut_dir.mkdir(parents=True, exist_ok=True)
         route = self.route()
@@ -682,6 +699,7 @@ class Plan:
             "playbookSha256": sha256(self.pb_path),
             "playbookStatus": self.pb["status"],
             "content": {"path": str(self.c_path), "sha256": sha256(self.c_path)},
+            "productPlacement": self.placement,
             "video": "cut.mp4",
             "route": route["id"],
             "routeRequestedByMaker": explicit and not route["default"],

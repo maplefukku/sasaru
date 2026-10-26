@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: text-ranking-tier-table
 name: 文字だけランキング・Tier 表
 status: draft
@@ -13,6 +13,10 @@ fitsContent:
   - 講義や授業のあるあるの格付け
   - アプリや道具の比較（自社を含むときは個人の見解と明記する）
   - 数字で並べられる自前のデータの順位表
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 勉強法や講義のあるあるを、動かない表で格付けする
 source:
   kind: hand-written
   platform: youtube-shorts

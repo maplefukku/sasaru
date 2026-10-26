@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: hands-desk-broll
 name: 手元の机と字幕
 status: draft
@@ -8,6 +8,10 @@ tags: [study, routine]
 fitsContent:
   - 勉強記録
   - 朝のルーティン
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 机の上の手元で、一日の記録が短く進む
 source:
   kind: hand-written
   platform: none

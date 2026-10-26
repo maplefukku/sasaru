@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: 2ch-thread-reading
 name: 2ch スレ風の文字読み（大学ネタ）
 status: draft
@@ -12,6 +12,10 @@ fitsContent:
   - 大学生活を題材にした創作スレ（講義、テスト、単位、課題、研究室）
   - アプリの使い方を、スレ民の反応として見せる話
   - 画面のスクリーンショットか図が一枚あれば成り立つ小ネタ
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 大学のスレで、伏せた結末にレスが積まれていく
 source:
   kind: hand-written
   platform: youtube-shorts

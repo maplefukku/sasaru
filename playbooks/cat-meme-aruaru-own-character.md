@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: cat-meme-aruaru-own-character
 name: 猫ミーム合成のあるある（自前キャラ化）
 status: draft
@@ -13,6 +13,10 @@ fitsContent:
   - 時間が進むほど感じ方が変わる話（テストまでの日数、一日の時刻、学期の週）
   - タイプごとに反応が分かれる話（学部別、座る席別、ノートの取り方別）
   - 計画と現実のずれ
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 自前のキャラが、学生生活のあるあるを場面ごとに切り替える
 source:
   kind: hand-written
   platform: youtube-shorts

@@ -77,6 +77,13 @@ def only_broken_playbooks():
 
 
 @case
+def pitch_subject_is_refused():
+    _, r = run({"content": {"kind": "商品の機能を紹介してダウンロードして"}}, LIB)
+    assert r["status"] == "refused", r
+    assert r["missing"][0]["field"] == "content.message"
+
+
+@case
 def no_content():
     _, r = run({"durationSec": 15}, LIB)
     assert r["status"] == "need-info"

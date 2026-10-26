@@ -1,5 +1,5 @@
 ---
-schema: sasaru-playbook/1
+schema: sasaru-playbook/2
 id: talking-confession
 name: 一人語りを手元映像に置き換えた型
 status: measured
@@ -10,6 +10,10 @@ audience:
 fitsContent:
   - 一人語りの体験談
   - 勉強法のコツ
+contentRoute: reference-world
+subject:
+  of: reference-world
+  words: 失敗談の中身を、手元の映像と字幕でたどる
 source:
   kind: ingested
   platform: instagram-reels

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/maplefukku/sasaru/schema/playbook.schema.json",
   "title": "sasaru playbook frontmatter",
-  "description": "YAML frontmatter of one playbook file. One file is one short-video format. format, hook, beats, captions, camera, and audio describe the cut this recipe makes on its default route. source.reference describes what the reference showed. Numbers describe the form, never the source work: no caption wording, no audio, no frames, no creator identity. null has exactly one meaning per field, named in that field's description. null: unmeasured means nobody measured or chose the value yet, and the field's path is listed in evidence.unmeasured. null: not applicable means the feature does not exist in this format. null never means no limit. A limit that does not apply is an optional field left out, such as format.safeArea. An optional field that does not apply to this format is left out, never null.",
+  "description": "YAML frontmatter of one playbook file. One file is one short-video format. format, hook, beats, captions, camera, and audio describe the cut this recipe makes on its default route. source.reference describes what the reference showed. Numbers describe the form, never the source work: no caption wording, no audio, no frames, no creator identity. null has exactly one meaning per field, named in that field's description. null: unmeasured means nobody measured or chose the value yet, and the field's path is listed in evidence.unmeasured. null: not applicable means the feature does not exist in this format. null never means no limit. A limit that does not apply is an optional field left out, such as format.safeArea. An optional field that does not apply to this format is left out, never null. productPlacement is left out only when the format never has a product slot. null is not a value for it and does not mean an end-card pitch.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,6 +13,8 @@
     "summary",
     "tags",
     "fitsContent",
+    "contentRoute",
+    "subject",
     "source",
     "format",
     "hook",
@@ -150,7 +152,7 @@
     }
   },
   "properties": {
-    "schema": { "const": "sasaru-playbook/1" },
+    "schema": { "const": "sasaru-playbook/2" },
     "id": {
       "description": "Kebab-case. Equals the file name without .md.",
       "type": "string",
@@ -177,6 +179,38 @@
       "minItems": 1,
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
+    },
+    "contentRoute": {
+      "description": "What this format keeps of the reference. reference-world keeps the concept and the world. moguno recasts that world as Moguno IP. in-world keeps the world and may show a target product only as an element inside it. The video's subject is never the product. Account style, not one cut, chooses this.",
+      "enum": ["reference-world", "moguno", "in-world"]
+    },
+    "subject": {
+      "description": "What the video is about, in words. The subject is the reference world or Moguno. A pitch-shaped subject, one whose subject is the product, is invalid.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["of", "words"],
+      "properties": {
+        "of": { "enum": ["reference-world", "moguno"] },
+        "words": { "type": "string", "minLength": 1 }
+      }
+    },
+    "productPlacement": {
+      "description": "Where this account style lets a target product appear in this format. Write the beat, the role, and how direct, in words. Omit the field only when this format never has a product slot. null is not a value: it does not mean an end-card pitch, and it is not a silent default.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["beat", "role", "directness"],
+      "properties": {
+        "beat": { "description": "Beat id where this style places the product, including when the role is absent.", "$ref": "#/$defs/beatId" },
+        "role": {
+          "description": "absent: this format does not show it. prop: an object inside the world. payoff: it arrives with the world's payoff, and is still not the subject. spoken: the name is said. end-card: a card the style asked for, not a default pitch.",
+          "enum": ["absent", "prop", "payoff", "spoken", "end-card"]
+        },
+        "directness": {
+          "description": "How direct the appearance is, in words. Not a boolean, and not a stand-in for an end-card pitch.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
     },
     "source": {
       "type": "object",
@@ -507,6 +541,21 @@
     {
       "if": { "properties": { "captions": { "minItems": 1 } } },
       "then": { "properties": { "fonts": { "minItems": 1 } } }
+    },
+    {
+      "if": { "properties": { "contentRoute": { "const": "moguno" } }, "required": ["contentRoute"] },
+      "then": { "properties": { "subject": { "properties": { "of": { "const": "moguno" } } } } }
+    },
+    {
+      "if": { "properties": { "contentRoute": { "enum": ["reference-world", "in-world"] } }, "required": ["contentRoute"] },
+      "then": { "properties": { "subject": { "properties": { "of": { "const": "reference-world" } } } } }
+    },
+    {
+      "if": { "properties": { "contentRoute": { "const": "in-world" } }, "required": ["contentRoute"] },
+      "then": {
+        "required": ["productPlacement"],
+        "properties": { "productPlacement": { "properties": { "role": { "const": "prop" } } } }
+      }
     }
   ]
 }
